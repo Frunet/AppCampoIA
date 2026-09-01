@@ -1,0 +1,21 @@
+node_modules/
+.output/
+.vercel/
+.wrangler/
+dist/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+.env
+.env.*
+!.env.example
+
+# Credenciales locales — nunca subir al repo
+CONTRAS BBDD SUPABASE/
+*.key
+*credentials*
+*secret*
+
+*.log
+.DS_Store
