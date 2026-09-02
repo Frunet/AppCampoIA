@@ -182,7 +182,9 @@ export function useWorkHours(farmId?: string, range?: { from: string; to: string
     queryFn: async () => {
       let q = supabase
         .from("work_hours")
-        .select("id,farm_id,worker_id,worker_name,work_date,hours,task_type,variety,kg,notes")
+        .select(
+          "id,farm_id,worker_id,worker_name,work_date,hours,task_type,variety,kg,notes,created_at,created_by,updated_at,updated_by",
+        )
         .order("work_date", { ascending: false });
       if (farmId) q = q.eq("farm_id", farmId);
       if (range) {

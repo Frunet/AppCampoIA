@@ -148,18 +148,21 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          phone_number: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          phone_number?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          phone_number?: string | null
         }
         Relationships: []
       }
@@ -369,6 +372,8 @@ export type Database = {
           kg: number | null
           notes: string | null
           task_type: string
+          updated_at: string
+          updated_by: string | null
           variety: string | null
           work_date: string
           worker_id: string | null
@@ -383,6 +388,8 @@ export type Database = {
           kg?: number | null
           notes?: string | null
           task_type: string
+          updated_at?: string
+          updated_by?: string | null
           variety?: string | null
           work_date?: string
           worker_id?: string | null
@@ -397,6 +404,8 @@ export type Database = {
           kg?: number | null
           notes?: string | null
           task_type?: string
+          updated_at?: string
+          updated_by?: string | null
           variety?: string | null
           work_date?: string
           worker_id?: string | null

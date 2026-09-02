@@ -218,9 +218,19 @@ function HorasPage() {
       kg: totalKgForm == null ? null : Math.round((totalKgForm / selected.length) * 100) / 100,
       notes: form.notes || null,
     }));
-    const { error } = editingId
-      ? await supabase.from("work_hours").update(rows[0]!).eq("id", editingId)
-      : await supabase.from("work_hours").insert(rows);
+    let error;
+    if (editingId) {
+      // updated_at lo pone el trigger set_updated_at(); updated_by no tiene
+      // default en la base (a diferencia de created_by), asi que se manda
+      // explicito con el usuario que esta editando ahora mismo.
+      const { data: userRes } = await supabase.auth.getUser();
+      ({ error } = await supabase
+        .from("work_hours")
+        .update({ ...rows[0]!, updated_by: userRes.user?.id ?? null })
+        .eq("id", editingId));
+    } else {
+      ({ error } = await supabase.from("work_hours").insert(rows));
+    }
     if (error) {
       toast.error(error.message);
       return;

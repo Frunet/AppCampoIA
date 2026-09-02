@@ -63,6 +63,10 @@ export type WorkHour = {
   variety: string | null;
   kg: number | null;
   notes: string | null;
+  created_at: string;
+  created_by: string | null;
+  updated_at: string;
+  updated_by: string | null;
 };
 
 export type Purchase = {
