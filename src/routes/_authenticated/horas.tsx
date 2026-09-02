@@ -111,8 +111,8 @@ function HorasPage() {
   const total = visibleRecords.reduce((s, r) => s + Number(r.hours), 0);
   const totalKg = visibleRecords.reduce((s, r) => s + Number(r.kg || 0), 0);
   const isHarvest = form.task_type === HARVEST_TASK;
-  const crop = farms.find((f) => f.id === farmId)?.crop ?? "mango";
-  const varieties = VARIETIES[crop];
+  const fruitName = farms.find((f) => f.id === farmId)?.fruit_name || "mango";
+  const varieties = VARIETIES[fruitName as keyof typeof VARIETIES] ?? VARIETIES.mango;
 
   function exportExcel() {
     const from = exportFrom || weekFrom;

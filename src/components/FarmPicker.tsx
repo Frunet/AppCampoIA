@@ -20,7 +20,7 @@ export function FarmPicker({ farms, value, onChange, allowAll = false }: Props) 
         {farms.map((f) => (
           <Chip key={f.id} active={value === f.id} onClick={() => onChange(f.id)}>
             {f.name}
-            <span className="ml-1.5 text-[10px] uppercase opacity-70">{f.crop}</span>
+            <span className="ml-1.5 text-[10px] uppercase opacity-70">{f.fruit_name}</span>
           </Chip>
         ))}
       </div>

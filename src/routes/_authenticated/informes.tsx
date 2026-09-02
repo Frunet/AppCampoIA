@@ -128,7 +128,7 @@ function InformesPage() {
             {rows.map((r) => (
               <tr key={r.farm.id} className="border-t border-border">
                 <td className="py-2 font-medium">{r.farm.name}</td>
-                <td className="py-2 capitalize text-muted-foreground">{r.farm.crop}</td>
+                <td className="py-2 capitalize text-muted-foreground">{r.farm.fruit_name}</td>
                 <td className="py-2 pl-3 text-right">{r.horas.toFixed(1)}</td>
                 <td className="py-2 pl-3 text-right">{eur(r.gasto)}</td>
                 <td className="py-2 pl-3 text-right">

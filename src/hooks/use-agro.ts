@@ -6,9 +6,17 @@ export function useFarms() {
   return useQuery({
     queryKey: ["farms"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("farms").select("id,name,crop").order("name");
+      const { data, error } = await supabase
+        .from("farms")
+        .select("id,name,fruit_id,fruits(name)")
+        .order("name");
       if (error) throw error;
-      return (data ?? []) as Farm[];
+      return (data ?? []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        fruit_id: f.fruit_id,
+        fruit_name: (f.fruits as { name: string } | null)?.name ?? "",
+      })) as Farm[];
     },
   });
 }

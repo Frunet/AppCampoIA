@@ -15,7 +15,7 @@ export const askAgro = createServerFn({ method: "POST" })
     const supabase = context.supabase;
 
     const [farmsRes, hoursRes, purchasesRes, tasksRes, catsRes] = await Promise.all([
-      supabase.from("farms").select("id,name,crop"),
+      supabase.from("farms").select("id,name,fruits(name)"),
       supabase
         .from("work_hours")
         .select("farm_id,worker_name,work_date,hours,task_type,notes")
@@ -41,7 +41,10 @@ export const askAgro = createServerFn({ method: "POST" })
 
     const dataset = {
       hoy: new Date().toISOString().slice(0, 10),
-      fincas: farms.map((f) => ({ nombre: f.name, cultivo: f.crop })),
+      fincas: farms.map((f) => ({
+        nombre: f.name,
+        cultivo: (f.fruits as { name: string } | null)?.name ?? "",
+      })),
       horas: (hoursRes.data ?? []).map((h) => ({
         finca: farmName(h.farm_id),
         trabajador: h.worker_name,

@@ -1,8 +1,12 @@
+// NOTA (Fase 1 -> Fase 3): "mango"/"aguacate" vienen ahora de la tabla
+// fruits, no de un enum. Este alias se mantiene solo mientras VARIETIES
+// sigue siendo una constante estatica; Fase 3 lo sustituye por datos reales
+// de las tablas fruits/varieties via hooks.
 export type Crop = "mango" | "aguacate";
 export type TaskStatus = "pendiente" | "en_curso" | "completada";
 
-export type Farm = { id: string; name: string; crop: Crop };
-export type Worker = { id: string; farm_id: string; name: string; active: boolean };
+export type Farm = { id: string; name: string; fruit_id: string; fruit_name: string };
+export type Worker = { id: string; farm_id: string; name: string; active: boolean; idrh?: string | null };
 export type Category = { id: string; name: string };
 
 export type WorkHour = {

@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      companies: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       farm_managers: {
         Row: {
           farm_id: string
@@ -42,22 +60,85 @@ export type Database = {
       }
       farms: {
         Row: {
+          company_id: string | null
           created_at: string
-          crop: Database["public"]["Enums"]["crop_type"]
+          fruit_id: string
+          id: string
+          name: string
+          surface_m2: number | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          fruit_id: string
+          id?: string
+          name: string
+          surface_m2?: number | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          fruit_id?: string
+          id?: string
+          name?: string
+          surface_m2?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "farms_fruit_id_fkey"
+            columns: ["fruit_id"]
+            isOneToOne: false
+            referencedRelation: "fruits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fruits: {
+        Row: {
+          created_at: string
           id: string
           name: string
         }
         Insert: {
           created_at?: string
-          crop: Database["public"]["Enums"]["crop_type"]
           id?: string
           name: string
         }
         Update: {
           created_at?: string
-          crop?: Database["public"]["Enums"]["crop_type"]
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      labor_cost_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          hourly_rate: number
+          id: string
+          valid_from: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          hourly_rate: number
+          id?: string
+          valid_from: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          hourly_rate?: number
+          id?: string
+          valid_from?: string
         }
         Relationships: []
       }
@@ -160,6 +241,33 @@ export type Database = {
         }
         Relationships: []
       }
+      task_types: {
+        Row: {
+          created_at: string
+          hint: string | null
+          id: string
+          is_harvest: boolean
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          hint?: string | null
+          id?: string
+          is_harvest?: boolean
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          hint?: string | null
+          id?: string
+          is_harvest?: boolean
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee: string | null
@@ -221,6 +329,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      varieties: {
+        Row: {
+          created_at: string
+          fruit_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          fruit_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          fruit_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "varieties_fruit_id_fkey"
+            columns: ["fruit_id"]
+            isOneToOne: false
+            referencedRelation: "fruits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_hours: {
         Row: {
@@ -288,6 +425,7 @@ export type Database = {
           created_at: string
           farm_id: string
           id: string
+          idrh: string | null
           name: string
         }
         Insert: {
@@ -295,6 +433,7 @@ export type Database = {
           created_at?: string
           farm_id: string
           id?: string
+          idrh?: string | null
           name: string
         }
         Update: {
@@ -302,6 +441,7 @@ export type Database = {
           created_at?: string
           farm_id?: string
           id?: string
+          idrh?: string | null
           name?: string
         }
         Relationships: [
@@ -333,7 +473,6 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager"
-      crop_type: "mango" | "aguacate"
       task_status: "pendiente" | "en_curso" | "completada"
     }
     CompositeTypes: {
@@ -350,12 +489,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -379,11 +518,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -404,11 +543,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -429,11 +568,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -446,11 +585,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -463,7 +602,6 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager"],
-      crop_type: ["mango", "aguacate"],
       task_status: ["pendiente", "en_curso", "completada"],
     },
   },
