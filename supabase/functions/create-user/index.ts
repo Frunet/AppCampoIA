@@ -1,25 +1,48 @@
 // Edge Function: create-user
 //
-// Da de alta una cuenta de acceso (Supabase Auth + rol + fincas asignadas).
-// Solo puede invocarla un usuario ya autenticado con rol admin.
+// Administracion de cuentas de acceso. A pesar del nombre (se quedo el
+// original para no romper la URL /functions/v1/create-user ya usada en el
+// cliente), ahora cubre tres acciones sobre `action` en el body:
+//   - "create" (por defecto si no se manda `action`, para no romper el
+//     payload que ya mandaba el cliente antes de esta ampliacion)
+//   - "delete"
+//   - "reset-password"
+// Las tres exigen que el caller este autenticado y sea admin.
 //
 // Entrada (JSON):
-//   { email: string, full_name: string, role: "admin" | "manager", farm_ids?: string[] }
+//   create:         { action?: "create", email, full_name, role, farm_ids? }
+//   delete:         { action: "delete", user_id }
+//   reset-password: { action: "reset-password", user_id, new_password }
 //
 // Salida (200):
-//   { user_id: string, email: string, temp_password: string }
+//   create:         { user_id, email, temp_password }
+//   delete/reset:   { ok: true }
 //
 // La fila en profiles y la entrada en user_roles las crea automaticamente
 // el trigger public.handle_new_user() (ver migracion inicial), que lee
 // full_name/role de user_metadata al crear el usuario en Auth — por eso
-// esta funcion no inserta en profiles/user_roles a mano, solo en
+// "create" no inserta en profiles/user_roles a mano, solo en
 // farm_managers (que no tiene trigger).
 //
-// Decision: no hay pipeline de email configurado/verificado en este
-// proyecto (los usuarios existentes se crearon con contraseña temporal via
-// script, no por invitacion), asi que se sigue ese mismo mecanismo:
-// contraseña temporal generada aqui, devuelta en la respuesta para que el
-// admin se la entregue. email_confirm=true evita el paso de verificacion.
+// Decision (create): sin invitacion por email — este proyecto no tiene un
+// pipeline de email configurado/verificado, asi que se sigue el mismo
+// mecanismo que ya usaban las cuentas existentes: contraseña temporal
+// generada aqui, devuelta en la respuesta para que el admin se la entregue.
+// email_confirm=true evita el paso de verificacion.
+//
+// Decision (delete): auth.admin.deleteUser() basta por si solo. profiles
+// referencia a auth.users con ON DELETE CASCADE, y user_roles/
+// farm_managers/work_hours.created_by/work_hours.updated_by/
+// purchases.created_by/tasks.created_by tienen CASCADE o SET NULL segun
+// corresponda (ver migraciones) — no hace falta borrar nada a mano, y
+// duplicarlo aqui solo añadiria una condicion de carrera si algo fallara a
+// mitad. Se impide que un admin se borre a si mismo (no estaba pedido,
+// pero borrar tu propia cuenta mientras la usas es un error facil de
+// cometer y dificil de deshacer si eras el unico admin).
+//
+// Decision (reset-password): auth.admin.updateUserById() con el password
+// nuevo directo, sin flujo de email — es lo que pide el punto 2 del
+// encargo (contraseña fijada por el admin, no un enlace de recuperacion).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -42,10 +65,16 @@ function randomTempPassword(): string {
 }
 
 type Payload = {
+  action?: "create" | "delete" | "reset-password";
+  // create
   email?: string;
   full_name?: string;
   role?: "admin" | "manager";
   farm_ids?: string[];
+  // delete / reset-password
+  user_id?: string;
+  // reset-password
+  new_password?: string;
 };
 
 Deno.serve(async (req) => {
@@ -60,7 +89,7 @@ Deno.serve(async (req) => {
     return json({ error: "Función mal configurada (faltan variables de entorno)." }, 500);
   }
 
-  // 1) El caller debe ser un admin autenticado.
+  // 1) El caller debe ser un admin autenticado — comun a las tres acciones.
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "No autenticado." }, 401);
@@ -85,9 +114,9 @@ Deno.serve(async (req) => {
     console.error("create-user: error comprobando rol", roleErr);
     return json({ error: "No se pudo comprobar el rol del solicitante." }, 500);
   }
-  if (!isAdmin) return json({ error: "Solo un administrador puede crear usuarios." }, 403);
+  if (!isAdmin) return json({ error: "Solo un administrador puede gestionar usuarios." }, 403);
 
-  // 2) Validar entrada.
+  // 2) Leer body.
   let payload: Payload;
   try {
     payload = await req.json();
@@ -95,6 +124,48 @@ Deno.serve(async (req) => {
     return json({ error: "Cuerpo de la petición inválido (se esperaba JSON)." }, 400);
   }
 
+  const action = payload.action ?? "create";
+
+  // -------------------------------------------------------------------
+  // Eliminar usuario
+  // -------------------------------------------------------------------
+  if (action === "delete") {
+    const userId = payload.user_id;
+    if (!userId) return json({ error: "Falta user_id." }, 400);
+    if (userId === callerData.user.id) {
+      return json({ error: "No puedes eliminar tu propia cuenta." }, 400);
+    }
+
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) {
+      console.error("create-user: error eliminando usuario", error);
+      return json({ error: error.message }, 400);
+    }
+    return json({ ok: true });
+  }
+
+  // -------------------------------------------------------------------
+  // Restablecer contraseña
+  // -------------------------------------------------------------------
+  if (action === "reset-password") {
+    const userId = payload.user_id;
+    const newPassword = payload.new_password;
+    if (!userId) return json({ error: "Falta user_id." }, 400);
+    if (!newPassword || newPassword.length < 6) {
+      return json({ error: "La contraseña debe tener al menos 6 caracteres." }, 400);
+    }
+
+    const { error } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
+    if (error) {
+      console.error("create-user: error restableciendo contraseña", error);
+      return json({ error: error.message }, 400);
+    }
+    return json({ ok: true });
+  }
+
+  // -------------------------------------------------------------------
+  // Crear usuario (comportamiento original)
+  // -------------------------------------------------------------------
   const email = payload.email?.trim().toLowerCase();
   const full_name = payload.full_name?.trim();
   const role = payload.role;
@@ -109,8 +180,6 @@ Deno.serve(async (req) => {
     return json({ error: "Un encargado (manager) necesita al menos una finca asignada." }, 400);
   }
 
-  // 3) Crear el usuario en Auth. El trigger handle_new_user() crea la fila
-  // en profiles y en user_roles a partir de user_metadata.
   const temp_password = randomTempPassword();
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
@@ -129,9 +198,6 @@ Deno.serve(async (req) => {
 
   const userId = created.user.id;
 
-  // 4) Asignar fincas (solo tiene sentido para manager; si un admin manda
-  // fincas igualmente se guardan, no le hacen falta para el acceso pero no
-  // estorban).
   if (farm_ids.length > 0) {
     const rows = farm_ids.map((farm_id) => ({ user_id: userId, farm_id }));
     const { error: fmErr } = await admin.from("farm_managers").insert(rows);

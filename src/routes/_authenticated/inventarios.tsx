@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -79,8 +79,7 @@ function InventariosPage() {
           <TabsTrigger value="fincas">Fincas</TabsTrigger>
           <TabsTrigger value="empresas">Empresas</TabsTrigger>
           <TabsTrigger value="tareas">Tipos de tarea</TabsTrigger>
-          <TabsTrigger value="frutas">Frutas</TabsTrigger>
-          <TabsTrigger value="variedades">Variedades</TabsTrigger>
+          <TabsTrigger value="frutas">Frutas y variedades</TabsTrigger>
           <TabsTrigger value="coste">Coste hora</TabsTrigger>
           <TabsTrigger value="responsables">Responsables</TabsTrigger>
         </TabsList>
@@ -97,10 +96,8 @@ function InventariosPage() {
         <TabsContent value="tareas">
           <TaskTypesTab />
         </TabsContent>
-        <TabsContent value="frutas">
+        <TabsContent value="frutas" className="space-y-4">
           <FruitsTab />
-        </TabsContent>
-        <TabsContent value="variedades">
           <VarietiesTab />
         </TabsContent>
         <TabsContent value="coste">
@@ -705,12 +702,28 @@ function WorkersTab() {
   const { data: farms = [] } = useFarms();
   const [farmFilter, setFarmFilter] = useState("");
   const { data: workers = [], isLoading } = useWorkers(farmFilter || undefined);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Worker | null>(null);
   const [name, setName] = useState("");
   const [idrh, setIdrh] = useState("");
   const [farmId, setFarmId] = useState("");
   const [active, setActive] = useState(true);
+
+  // Filtro en cliente sobre los datos ya cargados, igual que el resto de la
+  // app (horas.tsx/informes.tsx filtran listas ya traidas en vez de volver
+  // a consultar la base por cada cambio de filtro).
+  const visibleWorkers = workers.filter((w) => {
+    if (statusFilter === "active" && !w.active) return false;
+    if (statusFilter === "inactive" && w.active) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matches = w.name.toLowerCase().includes(q) || (w.idrh ?? "").toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+    return true;
+  });
 
   function openNew() {
     setEditing(null);
@@ -820,6 +833,25 @@ function WorkersTab() {
           </Dialog>
         </div>
       </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Buscar por nombre o ID RRHH…"
+          className="max-w-xs"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="h-9 rounded-md border border-input bg-card px-2 text-sm"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+        >
+          <option value="all">Todos los estados</option>
+          <option value="active">Activo</option>
+          <option value="inactive">Inactivo</option>
+        </select>
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -831,8 +863,13 @@ function WorkersTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!isLoading && workers.length === 0 && <EmptyRow colSpan={5} text="Sin trabajadores todavía." />}
-          {workers.map((w) => (
+          {!isLoading && visibleWorkers.length === 0 && (
+            <EmptyRow
+              colSpan={5}
+              text={workers.length === 0 ? "Sin trabajadores todavía." : "Ningún trabajador coincide con el filtro."}
+            />
+          )}
+          {visibleWorkers.map((w) => (
             <TableRow key={w.id}>
               <TableCell className="font-medium">{w.name}</TableCell>
               <TableCell className="text-muted-foreground">{farmName(w.farm_id)}</TableCell>
@@ -1029,6 +1066,28 @@ function FarmsTab() {
 // Responsables (usuarios)
 // ---------------------------------------------------------------------------
 
+/**
+ * Invoca la Edge Function create-user, que ademas de crear ahora tambien
+ * elimina y restablece contraseña segun el campo `action` del body (ver
+ * supabase/functions/create-user/index.ts). Centralizado aqui porque las
+ * tres acciones comparten el mismo fetch con el token de la sesion actual.
+ */
+async function callUserAdminFn<T = Record<string, unknown>>(
+  body: Record<string, unknown>,
+): Promise<T> {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token;
+  if (!token) throw new Error("Sesión no válida, vuelve a entrar.");
+  const res = await fetch(`${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/create-user`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "No se pudo completar la operación");
+  return json as T;
+}
+
 function UsersTab() {
   const qc = useQueryClient();
   const { data: users = [], isLoading } = useUsersAdmin();
@@ -1065,7 +1124,7 @@ function UsersTab() {
               <TableHead>Usuario</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Fincas</TableHead>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="w-40"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1092,7 +1151,18 @@ function UserRowEditor({
   const [role, setRole] = useState<AppRole>(user.role ?? "manager");
   const [farmIds, setFarmIds] = useState<string[]>(user.farm_ids);
   const [saving, setSaving] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const dirty = role !== (user.role ?? "manager") || JSON.stringify([...farmIds].sort()) !== JSON.stringify([...user.farm_ids].sort());
+
+  async function removeUser() {
+    try {
+      await callUserAdminFn({ action: "delete", user_id: user.id });
+      toast.success("Usuario eliminado");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el usuario");
+    }
+  }
 
   function toggleFarm(id: string) {
     setFarmIds((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
@@ -1169,13 +1239,78 @@ function UserRowEditor({
         )}
       </TableCell>
       <TableCell className="text-right">
-        {dirty && (
-          <Button size="sm" onClick={save} disabled={saving}>
-            {saving ? "..." : "Guardar"}
-          </Button>
-        )}
+        <div className="flex items-center justify-end gap-1">
+          {dirty && (
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? "..." : "Guardar"}
+            </Button>
+          )}
+          <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Restablecer contraseña">
+                <KeyRound className="size-4" />
+              </Button>
+            </DialogTrigger>
+            <ResetPasswordDialog user={user} onDone={() => setResetOpen(false)} />
+          </Dialog>
+          <DeleteButton
+            label={`al usuario "${user.full_name ?? user.email}"`}
+            onConfirm={removeUser}
+          />
+        </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+function ResetPasswordDialog({ user, onDone }: { user: UserRow; onDone: () => void }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await callUserAdminFn({ action: "reset-password", user_id: user.id, new_password: newPassword });
+      toast.success("Contraseña restablecida");
+      setNewPassword("");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo restablecer la contraseña");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Restablecer contraseña</DialogTitle>
+      </DialogHeader>
+      <p className="text-sm text-muted-foreground">
+        Cuenta: <span className="font-medium text-foreground">{user.full_name ?? user.email}</span> (
+        {user.email})
+      </p>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="rp-password">Contraseña nueva</Label>
+          <Input
+            id="rp-password"
+            type="text"
+            required
+            minLength={6}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Mínimo 6 caracteres"
+          />
+        </div>
+        <DialogFooter>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Guardando…" : "Restablecer"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 }
 
@@ -1195,25 +1330,12 @@ function NewUserDialog({ farms, onCreated }: { farms: Farm[]; onCreated: () => v
     e.preventDefault();
     setCreating(true);
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token;
-      if (!token) throw new Error("Sesión no válida, vuelve a entrar.");
-
-      const res = await fetch(
-        `${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/create-user`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            email: email.trim(),
-            full_name: fullName.trim(),
-            role,
-            farm_ids: role === "manager" ? farmIds : [],
-          }),
-        },
-      );
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "No se pudo crear el usuario");
+      const body = await callUserAdminFn<{ email: string; temp_password: string }>({
+        email: email.trim(),
+        full_name: fullName.trim(),
+        role,
+        farm_ids: role === "manager" ? farmIds : [],
+      });
       setResult({ email: body.email, temp_password: body.temp_password });
       toast.success("Usuario creado");
       onCreated();
