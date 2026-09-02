@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { BarChart3, Clock, ListChecks, MessageSquare, ShoppingCart, Sprout } from "lucide-react";
+import { BarChart3, Clock, ListChecks, MessageSquare, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,9 +46,7 @@ function Landing() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-5 py-16">
-        <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <Sprout className="size-6" />
-        </div>
+        <Logo className="mb-6 h-10" />
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Gestión agrícola de tus fincas, desde el campo
         </h1>

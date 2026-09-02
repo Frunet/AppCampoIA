@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Clock, ShoppingCart, ListChecks, BarChart3, MessageSquare, LogOut, Sprout } from "lucide-react";
+import { Clock, ShoppingCart, ListChecks, BarChart3, MessageSquare, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 
 const TABS = [
   { to: "/horas", label: "Horas", icon: Clock },
@@ -28,10 +29,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sprout className="size-5" />
-          </div>
-          <div className="mr-auto">
+          <Logo className="h-7 shrink-0" />
+          <div className="mr-auto border-l border-border pl-3">
             <p className="text-sm font-semibold leading-tight">Gestión Agrícola</p>
             <p className="text-xs text-muted-foreground leading-tight">Fincas de mango y aguacate</p>
           </div>

@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/auth")({
       {
         name: "description",
         content:
-          "Accede con tu email para registrar horas, compras y tareas de tus fincas de mango y aguacate.",
+          "Accede con tu usuario para registrar horas, compras y tareas de tus fincas de mango y aguacate.",
       },
       { property: "og:title", content: "Acceder · Gestión Agrícola de Fincas" },
       {
@@ -27,10 +27,23 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+/**
+ * Supabase Auth identifica siempre por email, pero en campo se entra con
+ * nombre de usuario ("pai", "frunet"...). Se completa con el dominio interno.
+ * Si el usuario escribe algo con "@" se respeta tal cual, para las cuentas
+ * que estan en otro dominio (p. ej. el admin de pruebas).
+ */
+const DOMINIO_INTERNO = "fincas.app";
+
+function aEmail(usuario: string) {
+  const limpio = usuario.trim().toLowerCase();
+  return limpio.includes("@") ? limpio : `${limpio}@${DOMINIO_INTERNO}`;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,12 +59,15 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: aEmail(username),
+          password,
+        });
         if (error) throw error;
         navigate({ to: "/horas", replace: true });
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: aEmail(username),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/horas`,
@@ -69,34 +85,56 @@ function AuthPage() {
     }
   }
 
+  // Campos con borde verde redondeado, como en frunet.app/appcampo
+  const inputClass = "rounded-xl border-2 border-primary/70 focus-visible:border-primary";
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+      {/* Fondo corporativo Frunet */}
+      <div
+        aria-hidden
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/fondo-bio.webp')" }}
+      />
+
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Sprout className="size-6" />
-          </div>
-          <h1 className="text-xl font-semibold">Gestión Agrícola</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <Logo className="h-10" />
+          <p className="mt-3 text-sm font-medium text-foreground/70">
             Horas, compras y tareas de tus fincas
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="surface space-y-4 p-5">
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-2xl border border-border bg-card/95 p-5 shadow-xl backdrop-blur-sm"
+        >
           {mode === "signup" && (
             <div className="space-y-1.5">
               <Label htmlFor="name">Nombre</Label>
-              <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <Input
+                id="name"
+                className={inputClass}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="usuario">Usuario</Label>
             <Input
-              id="email"
-              type="email"
+              id="usuario"
+              type="text"
+              inputMode="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="pai"
+              className={inputClass}
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -104,13 +142,14 @@ function AuthPage() {
             <Input
               id="password"
               type="password"
+              className={inputClass}
               required
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full rounded-full" disabled={loading}>
             {loading ? "Procesando…" : mode === "signin" ? "Entrar" : "Crear cuenta"}
           </Button>
           <button
@@ -121,6 +160,10 @@ function AuthPage() {
             {mode === "signin" ? "¿No tienes cuenta? Regístrate" : "Ya tengo cuenta"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-[11px] font-medium uppercase tracking-wider text-foreground/60">
+          Solo para personal autorizado
+        </p>
       </div>
     </div>
   );
