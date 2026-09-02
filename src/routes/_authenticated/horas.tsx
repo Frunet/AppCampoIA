@@ -542,8 +542,6 @@ function HorasPage() {
                 <TableRow>
                   <TableHead>Trabajador</TableHead>
                   <TableHead>Tipo de tarea</TableHead>
-                  <TableHead>Variedad</TableHead>
-                  <TableHead className="text-right">Kg</TableHead>
                   <TableHead className="text-right">Horas</TableHead>
                   <TableHead>Notas</TableHead>
                   <TableHead className="w-20 text-right">Acciones</TableHead>
@@ -554,10 +552,6 @@ function HorasPage() {
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.worker_name}</TableCell>
                     <TableCell className="text-muted-foreground">{r.task_type}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.variety ?? "—"}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {r.kg ? Number(r.kg) : "—"}
-                    </TableCell>
                     <TableCell className="text-right font-semibold">{Number(r.hours)}</TableCell>
                     <TableCell className="max-w-48 truncate text-muted-foreground" title={r.notes ?? ""}>
                       {r.notes ?? "—"}
