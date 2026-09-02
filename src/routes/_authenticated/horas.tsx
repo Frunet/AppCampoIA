@@ -16,6 +16,7 @@ import { exportWorkHoursToExcel } from "@/lib/export-horas";
 import { parseHoursFromVoice } from "@/lib/horas-voice.functions";
 import { AudioMessageButton } from "@/components/AudioMessageButton";
 import { useServerFn } from "@tanstack/react-start";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/horas")({
   head: () => ({
@@ -529,52 +530,72 @@ function HorasPage() {
           </p>
         )}
         {grouped.map(([date, rows]) => (
-          <div key={date} className="space-y-2">
-            <div className="flex items-baseline justify-between px-1">
+          <div key={date} className="surface overflow-hidden">
+            <div className="flex items-baseline justify-between border-b border-border bg-muted/40 px-3 py-2">
               <h2 className="text-sm font-semibold capitalize">{dayLabel(date)}</h2>
               <span className="text-xs text-muted-foreground">
                 {rows.reduce((s, r) => s + Number(r.hours), 0).toFixed(1)} h
               </span>
             </div>
-            {rows.map((r) => (
-              <div key={r.id} className="surface flex items-center gap-3 p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{r.worker_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.task_type}
-                    {r.variety ? ` · ${r.variety}` : ""}
-                    {r.kg ? ` · ${Number(r.kg)} kg` : ""}
-                    {r.notes ? ` · ${r.notes}` : ""}
-                  </p>
-                </div>
-                <span className="rounded-md bg-accent px-2 py-1 text-sm font-semibold text-accent-foreground">
-                  {Number(r.hours)} h
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Editar"
-                  onClick={() => {
-                    setEditingId(r.id);
-                    setForm({
-                      worker_ids: r.worker_id ? [r.worker_id] : [],
-                      work_date: r.work_date,
-                      hours: String(r.hours),
-                      task_type: r.task_type,
-                      variety: r.variety ?? "",
-                      kg: r.kg == null ? "" : String(r.kg),
-                      notes: r.notes ?? "",
-                    });
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <Button variant="ghost" size="icon" aria-label="Eliminar" onClick={() => remove(r.id)}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Trabajador</TableHead>
+                  <TableHead>Tipo de tarea</TableHead>
+                  <TableHead>Variedad</TableHead>
+                  <TableHead className="text-right">Kg</TableHead>
+                  <TableHead className="text-right">Horas</TableHead>
+                  <TableHead>Notas</TableHead>
+                  <TableHead className="w-20 text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.worker_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.task_type}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.variety ?? "—"}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {r.kg ? Number(r.kg) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">{Number(r.hours)}</TableCell>
+                    <TableCell className="max-w-48 truncate text-muted-foreground" title={r.notes ?? ""}>
+                      {r.notes ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Editar"
+                        onClick={() => {
+                          setEditingId(r.id);
+                          setForm({
+                            worker_ids: r.worker_id ? [r.worker_id] : [],
+                            work_date: r.work_date,
+                            hours: String(r.hours),
+                            task_type: r.task_type,
+                            variety: r.variety ?? "",
+                            kg: r.kg == null ? "" : String(r.kg),
+                            notes: r.notes ?? "",
+                          });
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Eliminar"
+                        onClick={() => remove(r.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         ))}
       </div>

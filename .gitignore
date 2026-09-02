@@ -21,3 +21,6 @@ scripts/crear-usuarios.mjs
 
 *.log
 .DS_Store
+
+# Fuentes de assets sin procesar (los que se usan de verdad van en public/)
+/images/
