@@ -1,8 +1,17 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Clock, ShoppingCart, ListChecks, BarChart3, MessageSquare, LogOut } from "lucide-react";
+import {
+  Archive,
+  Clock,
+  ShoppingCart,
+  ListChecks,
+  BarChart3,
+  MessageSquare,
+  LogOut,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/use-agro";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 
@@ -12,11 +21,16 @@ const TABS = [
   { to: "/tareas", label: "Tareas", icon: ListChecks },
   { to: "/informes", label: "Informes", icon: BarChart3 },
   { to: "/chat", label: "Chat", icon: MessageSquare },
+  // Solo admin: la ruta tambien se protege a nivel de beforeLoad, esto solo
+  // evita mostrarla en la navegacion al resto de usuarios.
+  { to: "/inventarios", label: "Inventarios", icon: Archive, adminOnly: true },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: isAdmin = false } = useIsAdmin();
+  const visibleTabs = TABS.filter((t) => !("adminOnly" in t) || isAdmin);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -35,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-xs text-muted-foreground leading-tight">Fincas de mango y aguacate</p>
           </div>
           <nav className="hidden md:flex items-center gap-1">
-            {TABS.map((t) => (
+            {visibleTabs.map((t) => (
               <Link
                 key={t.to}
                 to={t.to}
@@ -55,8 +69,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-5xl px-4 py-5">{children}</main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card md:hidden">
-        <div className="grid grid-cols-5">
-          {TABS.map((t) => (
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}
+        >
+          {visibleTabs.map((t) => (
             <Link
               key={t.to}
               to={t.to}

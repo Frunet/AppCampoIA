@@ -1,13 +1,56 @@
-// NOTA (Fase 1 -> Fase 3): "mango"/"aguacate" vienen ahora de la tabla
-// fruits, no de un enum. Este alias se mantiene solo mientras VARIETIES
-// sigue siendo una constante estatica; Fase 3 lo sustituye por datos reales
-// de las tablas fruits/varieties via hooks.
-export type Crop = "mango" | "aguacate";
 export type TaskStatus = "pendiente" | "en_curso" | "completada";
+export type AppRole = "admin" | "manager";
 
-export type Farm = { id: string; name: string; fruit_id: string; fruit_name: string };
-export type Worker = { id: string; farm_id: string; name: string; active: boolean; idrh?: string | null };
+export type Farm = {
+  id: string;
+  name: string;
+  fruit_id: string;
+  fruit_name: string;
+  company_id: string | null;
+  surface_m2: number | null;
+};
+export type Worker = {
+  id: string;
+  farm_id: string;
+  name: string;
+  active: boolean;
+  idrh: string | null;
+};
 export type Category = { id: string; name: string };
+
+// Catalogos de Inventarios (Fase 3) — sustituyen a las constantes estaticas
+// TASK_TYPES/TASK_TYPE_HINT/VARIETIES/HARVEST_TASK que vivian aqui antes.
+export type Company = { id: string; name: string };
+export type Fruit = { id: string; name: string };
+export type Variety = { id: string; fruit_id: string; name: string };
+export type TaskType = {
+  id: string;
+  name: string;
+  hint: string | null;
+  is_harvest: boolean;
+  sort_order: number | null;
+};
+export type LaborCostRate = {
+  id: string;
+  hourly_rate: number;
+  valid_from: string;
+  created_at: string;
+};
+export type UserRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: AppRole | null;
+  farm_ids: string[];
+};
+
+/** Coste/hora vigente en una fecha: la ultima tarifa con valid_from <= fecha. */
+export function rateForDate(rates: LaborCostRate[], date: string): number {
+  const applicable = rates
+    .filter((r) => r.valid_from <= date)
+    .sort((a, b) => (a.valid_from < b.valid_from ? 1 : -1));
+  return applicable[0]?.hourly_rate ?? 0;
+}
 
 export type WorkHour = {
   id: string;
@@ -43,34 +86,6 @@ export type Task = {
   status: TaskStatus;
   due_date: string | null;
   assignee: string | null;
-};
-
-export const TASK_TYPES = [
-  "Instalación",
-  "Suelos",
-  "Liado/Guía de planta",
-  "Otros cuidados planta",
-  "Riego, Abonado y Tratamiento",
-  "Cosecha/Recolección",
-  "Otros",
-];
-
-export const HARVEST_TASK = "Cosecha/Recolección";
-
-/** Hint shown next to each category (select options, Excel headers). */
-export const TASK_TYPE_HINT: Record<string, string> = {
-  Instalación: "Instalación",
-  Suelos: "Suelos (arado, desbroce, hierbas...)",
-  "Liado/Guía de planta": "Liado/Guía de planta",
-  "Otros cuidados planta": "Otros cuidados planta (tala, destalle...)",
-  "Riego, Abonado y Tratamiento": "Riego, Abonado y Tratamiento (sulfatos...)",
-  "Cosecha/Recolección": "Cosecha/Recolección",
-  Otros: "Otros",
-};
-
-export const VARIETIES: Record<Crop, string[]> = {
-  mango: ["Osteen", "Keitt", "Kent", "Tommy Atkins", "Palmer", "Otra"],
-  aguacate: ["Hass", "Fuerte", "Bacon", "Lamb Hass", "Reed", "Otra"],
 };
 
 export const UNITS = ["ud", "kg", "L", "sacos", "cajas", "horas"];

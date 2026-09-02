@@ -2,6 +2,7 @@ node_modules/
 .output/
 .vercel/
 .wrangler/
+.tanstack/
 dist/
 package-lock.json
 yarn.lock

@@ -4,20 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { FileSpreadsheet, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useFarms, useWorkHours, useWorkers } from "@/hooks/use-agro";
+import { useFarms, useTaskTypes, useVarieties, useWorkHours, useWorkers } from "@/hooks/use-agro";
 import { FarmPicker } from "@/components/FarmPicker";
 import { VoiceInput } from "@/components/VoiceInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  HARVEST_TASK,
-  TASK_TYPES,
-  TASK_TYPE_HINT,
-  VARIETIES,
-  todayISO,
-} from "@/lib/agro";
+import { todayISO } from "@/lib/agro";
 import { exportWorkHoursToExcel } from "@/lib/export-horas";
 import { parseHoursFromVoice } from "@/lib/horas-voice.functions";
 import { AudioMessageButton } from "@/components/AudioMessageButton";
@@ -42,7 +36,7 @@ const empty = {
   worker_ids: [] as string[],
   work_date: todayISO(),
   hours: "",
-  task_type: TASK_TYPES[0]!,
+  task_type: "",
   variety: "",
   kg: "",
   notes: "",
@@ -71,10 +65,18 @@ function HorasPage() {
   const [exportTo, setExportTo] = useState("");
 
   const parseHours = useServerFn(parseHoursFromVoice);
+  const { data: taskTypes = [] } = useTaskTypes();
+  const { data: allVarieties = [] } = useVarieties();
 
   useEffect(() => {
     if (!farmId && farms.length) setFarmId(farms[0]!.id);
   }, [farms, farmId]);
+
+  useEffect(() => {
+    if (!form.task_type && taskTypes.length) {
+      setForm((f) => ({ ...f, task_type: taskTypes[0]!.name }));
+    }
+  }, [taskTypes, form.task_type]);
 
   const { data: workers = [] } = useWorkers(farmId);
   const { data: records = [] } = useWorkHours(farmId);
@@ -110,9 +112,9 @@ function HorasPage() {
 
   const total = visibleRecords.reduce((s, r) => s + Number(r.hours), 0);
   const totalKg = visibleRecords.reduce((s, r) => s + Number(r.kg || 0), 0);
-  const isHarvest = form.task_type === HARVEST_TASK;
-  const fruitName = farms.find((f) => f.id === farmId)?.fruit_name || "mango";
-  const varieties = VARIETIES[fruitName as keyof typeof VARIETIES] ?? VARIETIES.mango;
+  const isHarvest = taskTypes.find((t) => t.name === form.task_type)?.is_harvest ?? false;
+  const currentFruit = farms.find((f) => f.id === farmId)?.fruit_id;
+  const varieties = allVarieties.filter((v) => v.fruit_id === currentFruit);
 
   function exportExcel() {
     const from = exportFrom || weekFrom;
@@ -127,7 +129,7 @@ function HorasPage() {
       return;
     }
     const farmName = farms.find((f) => f.id === farmId)?.name ?? "finca";
-    exportWorkHoursToExcel(rows, { farmName, from, to });
+    exportWorkHoursToExcel(rows, taskTypes, { farmName, from, to });
     toast.success(`Excel generado (${rows.length} registros)`);
   }
 
@@ -164,8 +166,8 @@ function HorasPage() {
         data: {
           transcript: text,
           workers: workers.map((w) => w.name),
-          tasks: [...TASK_TYPES],
-          varieties: [...varieties],
+          tasks: taskTypes.map((t) => t.name),
+          varieties: varieties.map((v) => v.name),
           today: todayISO(),
         },
       });
@@ -202,7 +204,7 @@ function HorasPage() {
       toast.error("Selecciona al menos un trabajador");
       return;
     }
-    const isH = form.task_type === HARVEST_TASK;
+    const isH = taskTypes.find((t) => t.name === form.task_type)?.is_harvest ?? false;
     const totalKgForm = isH && form.kg !== "" ? Number(form.kg) : null;
     const rows = selected.map((worker) => ({
       farm_id: farmId,
@@ -374,9 +376,9 @@ function HorasPage() {
             value={form.task_type}
             onChange={(e) => setForm({ ...form, task_type: e.target.value })}
           >
-            {TASK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TASK_TYPE_HINT[t] ?? t}
+            {taskTypes.map((t) => (
+              <option key={t.id} value={t.name}>
+                {t.hint ?? t.name}
               </option>
             ))}
           </select>
@@ -394,8 +396,8 @@ function HorasPage() {
               >
                 <option value="">Selecciona…</option>
                 {varieties.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
+                  <option key={v.id} value={v.name}>
+                    {v.name}
                   </option>
                 ))}
               </select>

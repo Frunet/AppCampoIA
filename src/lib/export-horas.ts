@@ -1,36 +1,30 @@
 import * as XLSX from "xlsx";
-import { TASK_TYPES, type WorkHour } from "@/lib/agro";
-
-/** Column headers, matching the client's Excel template exactly. */
-const CATEGORY_HEADERS: Record<string, string> = {
-  "Instalación": "Instalación\u00a0(gomas riego, plásticos...)",
-  "Suelos": "Suelos\u00a0(arado, desbroce, hierbas...)",
-  "Liado/Guía de planta": "Liado/ Guía de planta",
-  "Otros cuidados planta": "Otros cuidados planta\u00a0(tala, destalle...)",
-  "Riego, Abonado y Tratamiento": "Riego, Abonado y Tratamiento\u00a0(sulfatos...)",
-  "Cosecha/Recolección": "Cosecha/ Recolección",
-  "Otros": "Otros",
-};
-
-const HEADERS = [
-  "FECHA",
-  "Nombre",
-  "Horas Diarias",
-  "Finca/Invernadero",
-  ...TASK_TYPES.map((t) => CATEGORY_HEADERS[t] ?? t),
-  "Tareas",
-  "TOTAL",
-];
+import type { TaskType, WorkHour } from "@/lib/agro";
 
 /**
- * Exports work hours in the client's "DATOS" template:
- * one row per record, hours placed in the matching category column,
- * TOTAL as a live =SUM(E:K) formula.
+ * Exports work hours in the client's "DATOS" template: one row per record,
+ * hours placed in the matching category column, TOTAL as a live formula.
+ *
+ * Las columnas de categoria (una por task_type) ya no son una lista fija:
+ * vienen del catalogo task_types (Inventarios), ordenado por sort_order.
+ * El hint de cada tipo se usa como cabecera, igual que antes con
+ * TASK_TYPE_HINT.
  */
 export function exportWorkHoursToExcel(
   records: WorkHour[],
+  taskTypes: TaskType[],
   opts: { farmName: string; from: string; to: string },
 ) {
+  const headers = [
+    "FECHA",
+    "Nombre",
+    "Horas Diarias",
+    "Finca/Invernadero",
+    ...taskTypes.map((t) => t.hint ?? t.name),
+    "Tareas",
+    "TOTAL",
+  ];
+
   const sorted = records
     .slice()
     .sort(
@@ -38,11 +32,11 @@ export function exportWorkHoursToExcel(
         a.work_date.localeCompare(b.work_date) || a.worker_name.localeCompare(b.worker_name, "es"),
     );
 
-  const aoa: (string | number | null)[][] = [HEADERS];
+  const aoa: (string | number | null)[][] = [headers];
 
   sorted.forEach((r) => {
     const hours = Number(r.hours || 0);
-    const cats = TASK_TYPES.map((t) => (r.task_type === t ? hours : null));
+    const cats = taskTypes.map((t) => (r.task_type === t.name ? hours : null));
     const tareas = [r.variety ? `Variedad: ${r.variety}` : "", r.kg ? `${Number(r.kg)} kg` : "", r.notes ?? ""]
       .filter(Boolean)
       .join(" · ");
@@ -51,10 +45,13 @@ export function exportWorkHoursToExcel(
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // TOTAL column formula per row (E..K = category columns)
+  // Columna TOTAL: suma las columnas de categoria (empiezan en la E, tantas
+  // como task_types haya).
+  const lastCatCol = XLSX.utils.encode_col(4 + taskTypes.length - 1);
+  const totalCol = XLSX.utils.encode_col(4 + taskTypes.length + 1);
   sorted.forEach((_, i) => {
     const row = i + 2;
-    ws[`M${row}`] = { t: "n", f: `SUM(E${row}:K${row})` };
+    ws[`${totalCol}${row}`] = { t: "n", f: `SUM(E${row}:${lastCatCol}${row})` };
   });
 
   ws["!cols"] = [
@@ -62,7 +59,7 @@ export function exportWorkHoursToExcel(
     { wch: 22 },
     { wch: 13 },
     { wch: 20 },
-    ...TASK_TYPES.map(() => ({ wch: 20 })),
+    ...taskTypes.map(() => ({ wch: 20 })),
     { wch: 34 },
     { wch: 10 },
   ];
