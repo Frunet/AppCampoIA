@@ -89,14 +89,7 @@ function AuthPage() {
   const inputClass = "rounded-xl border-2 border-primary/70 focus-visible:border-primary";
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
-      {/* Fondo corporativo Frunet */}
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/fondo-bio.webp')" }}
-      />
-
+    <div className="fondo-frunet relative flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <Logo className="h-10" />

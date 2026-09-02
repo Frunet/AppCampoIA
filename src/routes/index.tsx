@@ -44,7 +44,7 @@ function Landing() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="fondo-frunet min-h-screen">
       <div className="mx-auto max-w-3xl px-5 py-16">
         <Logo className="mb-6 h-10" />
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

@@ -4,10 +4,27 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Tipografia corporativa Frunet, autoalojada (misma que frunet.app/appcampo) */
+@font-face {
+  font-family: "Avenir Book";
+  src: url("/fonts/avenir-book.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir Black";
+  src: url("/fonts/avenir-black.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
-  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Oswald", "Nunito", sans-serif;
-  --font-script: "Kaushan Script", cursive;
+  --font-sans: "Avenir Book", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Avenir Black", "Avenir Book", ui-sans-serif, sans-serif;
+  --font-script: "Avenir Book", cursive;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -141,7 +158,37 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Titulos con la display corporativa (Avenir Black), como en frunet.app */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+
+  /*
+   * Fondo corporativo. Se aplica a una capa fija propia y no al body, para
+   * que no dependa del scroll: en iOS `background-attachment: fixed` no
+   * funciona y la imagen salta al desplazar.
+   */
+  .fondo-frunet::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: url("/fondo-bio.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  @media screen and (max-width: 700px) {
+    .fondo-frunet::before {
+      background-image: url("/fondo-bio-movil.jpg");
+    }
   }
 }
 
