@@ -170,16 +170,26 @@ export function useCategories() {
   });
 }
 
-export function useWorkHours(farmId?: string) {
+/**
+ * `range` filtra por work_date en el servidor, en vez de traer un lote fijo
+ * y filtrar en el cliente: sin esto, un informe sobre todas las fincas (sin
+ * farmId) que supere el limite se corta por las fechas mas antiguas del
+ * lote y todos los totales agregados salen mal, sin ningun aviso.
+ */
+export function useWorkHours(farmId?: string, range?: { from: string; to: string }) {
   return useQuery({
-    queryKey: ["work_hours", farmId ?? "all"],
+    queryKey: ["work_hours", farmId ?? "all", range ? `${range.from}_${range.to}` : "recent"],
     queryFn: async () => {
       let q = supabase
         .from("work_hours")
         .select("id,farm_id,worker_id,worker_name,work_date,hours,task_type,variety,kg,notes")
-        .order("work_date", { ascending: false })
-        .limit(500);
+        .order("work_date", { ascending: false });
       if (farmId) q = q.eq("farm_id", farmId);
+      if (range) {
+        q = q.gte("work_date", range.from).lte("work_date", range.to).limit(5000);
+      } else {
+        q = q.limit(500);
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as WorkHour[];

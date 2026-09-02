@@ -11,10 +11,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useCategories, useFarms, usePurchases, useTasks, useWorkHours } from "@/hooks/use-agro";
+import {
+  useCategories,
+  useFarms,
+  useLaborCostRates,
+  usePurchases,
+  useTasks,
+  useWorkHours,
+} from "@/hooks/use-agro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { eur, monthKey, monthLabel, monthRange } from "@/lib/agro";
+import { eur, monthKey, monthLabel, monthRange, rateForDate } from "@/lib/agro";
 
 export const Route = createFileRoute("/_authenticated/informes")({
   head: () => ({
@@ -34,13 +41,13 @@ export const Route = createFileRoute("/_authenticated/informes")({
 
 function InformesPage() {
   const [month, setMonth] = useState(monthKey());
+  const range = monthRange(month);
   const { data: farms = [] } = useFarms();
-  const { data: hours = [] } = useWorkHours();
+  const { data: hours = [] } = useWorkHours(undefined, range);
   const { data: purchases = [] } = usePurchases();
   const { data: tasks = [] } = useTasks();
   const { data: categories = [] } = useCategories();
-
-  const range = monthRange(month);
+  const { data: laborRates = [] } = useLaborCostRates();
 
   const rows = useMemo(() => {
     return farms.map((f) => {
@@ -55,11 +62,18 @@ function InformesPage() {
         farm: f,
         horas: h.reduce((s, r) => s + Number(r.hours), 0),
         gasto: p.reduce((s, r) => s + Number(r.cost), 0),
+        // Coste de personal: para cada registro se aplica la tarifa vigente
+        // en SU fecha, no la del mes en curso — asi un cambio de tarifa a
+        // mitad de mes reparte el coste correctamente entre los dias.
+        costePersonal: h.reduce(
+          (s, r) => s + Number(r.hours) * rateForDate(laborRates, r.work_date),
+          0,
+        ),
         completadas: t.filter((r) => r.status === "completada").length,
         pendientes: t.filter((r) => r.status !== "completada").length,
       };
     });
-  }, [farms, hours, purchases, tasks, range.from, range.to]);
+  }, [farms, hours, purchases, tasks, laborRates, range.from, range.to]);
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -76,10 +90,11 @@ function InformesPage() {
     (acc, r) => ({
       horas: acc.horas + r.horas,
       gasto: acc.gasto + r.gasto,
+      costePersonal: acc.costePersonal + r.costePersonal,
       completadas: acc.completadas + r.completadas,
       pendientes: acc.pendientes + r.pendientes,
     }),
-    { horas: 0, gasto: 0, completadas: 0, pendientes: 0 },
+    { horas: 0, gasto: 0, costePersonal: 0, completadas: 0, pendientes: 0 },
   );
 
   const chartData = rows.map((r) => ({
@@ -105,22 +120,30 @@ function InformesPage() {
 
       <p className="mb-4 text-sm text-muted-foreground">Resumen de {monthLabel(month)}</p>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi label="Horas trabajadas" value={`${totals.horas.toFixed(1)} h`} />
         <Kpi label="Gasto en insumos" value={eur(totals.gasto)} />
+        <Kpi label="Coste de personal" value={eur(totals.costePersonal)} />
         <Kpi label="Tareas completadas" value={String(totals.completadas)} />
         <Kpi label="Tareas pendientes" value={String(totals.pendientes)} />
       </div>
+      {laborRates.length === 0 && (
+        <p className="mb-5 -mt-3 text-xs text-muted-foreground">
+          El coste de personal sale en 0 € porque todavía no hay ninguna tarifa cargada en
+          Inventarios → Coste hora.
+        </p>
+      )}
 
       <div className="surface mb-5 overflow-x-auto p-4">
         <h2 className="mb-3 text-sm font-semibold">Totales por finca</h2>
-        <table className="w-full min-w-[26rem] text-sm">
+        <table className="w-full min-w-[34rem] text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-muted-foreground">
               <th className="pb-2">Finca</th>
               <th className="pb-2">Cultivo</th>
               <th className="pb-2 pl-3 text-right">Horas</th>
               <th className="pb-2 pl-3 text-right">Gasto</th>
+              <th className="pb-2 pl-3 text-right">Coste personal</th>
               <th className="pb-2 pl-3 text-right">Compl./Pend.</th>
             </tr>
           </thead>
@@ -131,6 +154,7 @@ function InformesPage() {
                 <td className="py-2 capitalize text-muted-foreground">{r.farm.fruit_name}</td>
                 <td className="py-2 pl-3 text-right">{r.horas.toFixed(1)}</td>
                 <td className="py-2 pl-3 text-right">{eur(r.gasto)}</td>
+                <td className="py-2 pl-3 text-right">{eur(r.costePersonal)}</td>
                 <td className="py-2 pl-3 text-right">
                   {r.completadas}/{r.pendientes}
                 </td>
