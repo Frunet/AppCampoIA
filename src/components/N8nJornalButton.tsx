@@ -5,7 +5,23 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-type Props = { disabled?: boolean; onRegistered?: () => void };
+/** Una linea ya resuelta por n8n, lista para anadir al borrador — mismos
+ * campos que una fila de work_hours (sin worker_id nulo: si no encontro un
+ * trabajador real, esa linea se queda pidiendo aclaracion en vez de
+ * devolverse aqui). */
+export type N8nLine = {
+  farm_id: string;
+  worker_id: string;
+  worker_name: string;
+  work_date: string;
+  hours: number;
+  task_type: string;
+  variety: string | null;
+  kg: number | null;
+  notes: string | null;
+};
+
+type Props = { disabled?: boolean; onLines: (lines: N8nLine[]) => void };
 
 const TARGET_RATE = 16000;
 const N8N_WEBHOOK_URL = "https://frunet.app.n8n.cloud/webhook/voice-jornal-app";
@@ -51,30 +67,35 @@ function encodeWav(samples: Float32Array): Blob {
   return new Blob([buffer], { type: "audio/wav" });
 }
 
+type PendingLine = Record<string, unknown>;
+
 type N8nResponse = {
   success: boolean;
   needsClarification: boolean;
-  needsConfirmation: boolean;
   message: string;
-  record: unknown;
-  pending: Record<string, unknown> | null;
+  lines: N8nLine[];
+  pending: PendingLine[] | null;
 };
 
 /**
- * Graba audio y lo envía directamente al webhook de n8n ("Campo IA - Crear
- * jornal por voz"), que transcribe, extrae los datos y crea el registro en
- * work_hours por su cuenta — sin pasar por el formulario de esta pantalla.
+ * Graba audio y lo envía al webhook de n8n ("Campo IA - Crear jornal por
+ * voz"), que transcribe, extrae los datos (puede haber varios trabajadores
+ * y/o tareas en un mismo audio) y devuelve un array de líneas ya resueltas
+ * y filtradas por las fincas a las que tiene acceso el usuario. Este
+ * componente las añade directamente al borrador de la pantalla — igual que
+ * si vinieran del formulario — y es el usuario quien las confirma pulsando
+ * "REGISTRAR HORAS".
  *
- * Si al asistente le falta algún dato o quiere confirmación, la conversación
- * sigue: se muestra su pregunta y el próximo audio grabado se envía junto con
- * el contexto ya extraído (campo `pending` devuelto por n8n), hasta que
- * confirma y registra el parte.
+ * Si a alguna línea le falta un dato, la conversación sigue: se muestra la
+ * pregunta del asistente y el próximo audio grabado se envía junto con el
+ * contexto ya extraído (campo `pending` devuelto por n8n), hasta que esa
+ * línea también queda completa.
  */
-export function N8nJornalButton({ disabled, onRegistered }: Props) {
+export function N8nJornalButton({ disabled, onLines }: Props) {
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
-  const pendingContextRef = useRef<Record<string, unknown> | null>(null);
+  const pendingContextRef = useRef<PendingLine[] | null>(null);
   const stateRef = useRef<{
     stream: MediaStream;
     ctx: AudioContext;
@@ -137,17 +158,19 @@ export function N8nJornalButton({ disabled, onRegistered }: Props) {
         toast.error("No se pudo contactar con el asistente de voz");
         return;
       }
-      if (json.needsClarification || json.needsConfirmation) {
+      if (json.lines?.length) {
+        onLines(json.lines);
+      }
+      if (json.needsClarification) {
         pendingContextRef.current = json.pending ?? null;
         setAssistantMessage(json.message);
         toast.info(json.message);
       } else {
         resetConversation();
-        if (json.success) {
-          toast.success(json.message || "Parte registrado");
-          onRegistered?.();
+        if (json.lines?.length) {
+          toast.success(json.message || "Líneas añadidas a la lista");
         } else {
-          toast.error(json.message || "No he podido registrar el parte, repite el dictado");
+          toast.error(json.message || "No he podido interpretar el audio, repite el dictado");
         }
       }
     } catch (err) {

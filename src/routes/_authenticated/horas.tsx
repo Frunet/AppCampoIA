@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayISO, type Worker } from "@/lib/agro";
 import { parseHoursFromVoice } from "@/lib/horas-voice.functions";
 import { AudioMessageButton } from "@/components/AudioMessageButton";
-import { N8nJornalButton } from "@/components/N8nJornalButton";
+import { N8nJornalButton, type N8nLine } from "@/components/N8nJornalButton";
 import { useServerFn } from "@tanstack/react-start";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -378,6 +378,13 @@ function HorasPage() {
     setDraft((d) => d.filter((l) => l.draftId !== draftId));
   }
 
+  // Lineas ya resueltas por el asistente de voz de n8n (puede haber varios
+  // trabajadores/tareas en un mismo audio) — se anaden al borrador igual
+  // que si vinieran del formulario, con su propio draftId de cliente.
+  function addN8nLines(lines: N8nLine[]) {
+    setDraft((d) => [...d, ...lines.map((line) => ({ ...line, draftId: crypto.randomUUID() }))]);
+  }
+
   // Si hay una linea de borrador a medio editar (se quito del array en
   // startEditDraftLine), la devuelve a su sitio tal cual estaba, sin los
   // cambios a medio escribir. Se llama antes de arrancar CUALQUIER otro
@@ -459,7 +466,7 @@ function HorasPage() {
       </div>
 
       <div className="surface mb-3 p-3">
-        <N8nJornalButton onRegistered={() => qc.invalidateQueries({ queryKey: ["work_hours"] })} />
+        <N8nJornalButton onLines={addN8nLines} />
       </div>
 
       <form onSubmit={save} className="surface mb-5 space-y-3 p-4">
@@ -683,6 +690,7 @@ function HorasPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="h-8">Trabajador</TableHead>
+                <TableHead className="h-8">Finca</TableHead>
                 <TableHead className="h-8">Fecha</TableHead>
                 <TableHead className="h-8">Tipo de tarea</TableHead>
                 <TableHead className="h-8">Variedad</TableHead>
@@ -696,6 +704,9 @@ function HorasPage() {
               {draft.map((line, index) => (
                 <TableRow key={line.draftId}>
                   <TableCell className="py-1 font-medium">{line.worker_name}</TableCell>
+                  <TableCell className="py-1 text-muted-foreground">
+                    {farms.find((f) => f.id === line.farm_id)?.name ?? "—"}
+                  </TableCell>
                   <TableCell className="py-1 text-muted-foreground">{line.work_date}</TableCell>
                   <TableCell className="py-1 text-muted-foreground">{line.task_type}</TableCell>
                   <TableCell className="py-1 text-muted-foreground">{line.variety ?? "—"}</TableCell>
@@ -790,19 +801,19 @@ function HorasPage() {
             <Table className="[table-layout:fixed]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="h-8 w-28">Trabajador</TableHead>
-                  <TableHead className="h-8 w-32">Tipo de tarea</TableHead>
+                  <TableHead className="h-8 w-[168px]">Trabajador</TableHead>
+                  <TableHead className="h-8 w-64">Tipo de tarea</TableHead>
                   <TableHead className="h-8 w-12 text-right">Horas</TableHead>
-                  <TableHead className="h-8">Notas</TableHead>
+                  <TableHead className="h-8 w-48">Notas</TableHead>
                   <TableHead className="h-8 w-28 text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="w-28 py-1 font-medium">{r.worker_name}</TableCell>
+                    <TableCell className="w-[168px] py-1 font-medium">{r.worker_name}</TableCell>
                     <TableCell
-                      className="w-32 truncate py-1 text-muted-foreground"
+                      className="w-64 truncate py-1 text-muted-foreground"
                       title={r.task_type}
                     >
                       {r.task_type}
@@ -811,7 +822,7 @@ function HorasPage() {
                       {Number(r.hours)}
                     </TableCell>
                     <TableCell
-                      className="max-w-48 truncate py-1 text-muted-foreground"
+                      className="w-48 truncate py-1 text-muted-foreground"
                       title={r.notes ?? ""}
                     >
                       {r.notes ?? "—"}
