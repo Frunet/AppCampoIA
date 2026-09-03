@@ -802,7 +802,7 @@ function HorasPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="h-8 w-[168px]">Trabajador</TableHead>
-                  <TableHead className="h-8 w-64">Tipo de tarea</TableHead>
+                  <TableHead className="h-8 w-48">Tipo de tarea</TableHead>
                   <TableHead className="h-8 w-12 text-right">Horas</TableHead>
                   <TableHead className="h-8 w-48">Notas</TableHead>
                   <TableHead className="h-8 w-28 text-right">Acciones</TableHead>
@@ -813,7 +813,7 @@ function HorasPage() {
                   <TableRow key={r.id}>
                     <TableCell className="w-[168px] py-1 font-medium">{r.worker_name}</TableCell>
                     <TableCell
-                      className="w-64 truncate py-1 text-muted-foreground"
+                      className="w-48 truncate py-1 text-muted-foreground"
                       title={r.task_type}
                     >
                       {r.task_type}
