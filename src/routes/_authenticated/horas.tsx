@@ -15,6 +15,7 @@ import { todayISO } from "@/lib/agro";
 import { exportWorkHoursToExcel } from "@/lib/export-horas";
 import { parseHoursFromVoice } from "@/lib/horas-voice.functions";
 import { AudioMessageButton } from "@/components/AudioMessageButton";
+import { N8nJornalButton } from "@/components/N8nJornalButton";
 import { useServerFn } from "@tanstack/react-start";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -266,6 +267,13 @@ function HorasPage() {
           {dictating
             ? "Interpretando el dictado…"
             : 'Dicta el parte: "Juan y María, 8 horas de cosecha de Osteen hoy, 400 kg".'}
+        </p>
+      </div>
+
+      <div className="surface mb-3 flex items-center gap-3 p-3">
+        <N8nJornalButton onRegistered={() => qc.invalidateQueries({ queryKey: ["work_hours"] })} />
+        <p className="text-xs text-muted-foreground">
+          Crea el parte directamente por voz (IA de n8n) — sin pasar por el formulario.
         </p>
       </div>
 

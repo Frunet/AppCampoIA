@@ -16,6 +16,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
 import { Route as AuthenticatedHorasRouteImport } from './routes/_authenticated/horas'
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
+import { Route as AuthenticatedInventariosRouteImport } from './routes/_authenticated/inventarios'
 import { Route as AuthenticatedTareasRouteImport } from './routes/_authenticated/tareas'
 
 const IndexRoute = IndexRouteImport.update({
@@ -52,6 +53,12 @@ const AuthenticatedInformesRoute = AuthenticatedInformesRouteImport.update({
   path: '/informes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInventariosRoute =
+  AuthenticatedInventariosRouteImport.update({
+    id: '/inventarios',
+    path: '/inventarios',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTareasRoute = AuthenticatedTareasRouteImport.update({
   id: '/tareas',
   path: '/tareas',
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/compras': typeof AuthenticatedComprasRoute
   '/horas': typeof AuthenticatedHorasRoute
   '/informes': typeof AuthenticatedInformesRoute
+  '/inventarios': typeof AuthenticatedInventariosRoute
   '/tareas': typeof AuthenticatedTareasRoute
 }
 export interface FileRoutesByTo {
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
   '/compras': typeof AuthenticatedComprasRoute
   '/horas': typeof AuthenticatedHorasRoute
   '/informes': typeof AuthenticatedInformesRoute
+  '/inventarios': typeof AuthenticatedInventariosRoute
   '/tareas': typeof AuthenticatedTareasRoute
 }
 export interface FileRoutesById {
@@ -85,14 +94,30 @@ export interface FileRoutesById {
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/horas': typeof AuthenticatedHorasRoute
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
+  '/_authenticated/inventarios': typeof AuthenticatedInventariosRoute
   '/_authenticated/tareas': typeof AuthenticatedTareasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/chat' | '/compras' | '/horas' | '/informes' | '/tareas'
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/compras'
+    | '/horas'
+    | '/informes'
+    | '/inventarios'
+    | '/tareas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chat' | '/compras' | '/horas' | '/informes' | '/tareas'
+  to:
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/compras'
+    | '/horas'
+    | '/informes'
+    | '/inventarios'
+    | '/tareas'
   id:
     | '__root__'
     | '/'
@@ -102,6 +127,7 @@ export interface FileRouteTypes {
     | '/_authenticated/compras'
     | '/_authenticated/horas'
     | '/_authenticated/informes'
+    | '/_authenticated/inventarios'
     | '/_authenticated/tareas'
   fileRoutesById: FileRoutesById
 }
@@ -162,6 +188,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInformesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/inventarios': {
+      id: '/_authenticated/inventarios'
+      path: '/inventarios'
+      fullPath: '/inventarios'
+      preLoaderRoute: typeof AuthenticatedInventariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/tareas': {
       id: '/_authenticated/tareas'
       path: '/tareas'
@@ -177,6 +210,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedHorasRoute: typeof AuthenticatedHorasRoute
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
+  AuthenticatedInventariosRoute: typeof AuthenticatedInventariosRoute
   AuthenticatedTareasRoute: typeof AuthenticatedTareasRoute
 }
 
@@ -185,6 +219,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedHorasRoute: AuthenticatedHorasRoute,
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,
+  AuthenticatedInventariosRoute: AuthenticatedInventariosRoute,
   AuthenticatedTareasRoute: AuthenticatedTareasRoute,
 }
 
