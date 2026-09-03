@@ -140,12 +140,12 @@ function HorasPage() {
   const { data: allVarieties = [] } = useVarieties();
 
   useEffect(() => {
-    if (!farmId && farms.length) setFarmId(farms[0]!.id);
+    if (!farmId && farms.length) setFarmId((farms.find((f) => f.active) ?? farms[0])!.id);
   }, [farms, farmId]);
 
   useEffect(() => {
     if (!form.task_type && taskTypes.length) {
-      setForm((f) => ({ ...f, task_type: taskTypes[0]!.name }));
+      setForm((f) => ({ ...f, task_type: (taskTypes.find((t) => t.active) ?? taskTypes[0])!.name }));
     }
   }, [taskTypes, form.task_type]);
 
@@ -187,7 +187,15 @@ function HorasPage() {
   const draftTotalKg = draft.reduce((s, l) => s + (l.kg ?? 0), 0);
   const isHarvest = taskTypes.find((t) => t.name === form.task_type)?.is_harvest ?? false;
   const currentFruit = farms.find((f) => f.id === farmId)?.fruit_id;
-  const varieties = allVarieties.filter((v) => v.fruit_id === currentFruit);
+  // Catalogos filtrados a "activo" para altas nuevas — pero si el valor ya
+  // seleccionado (p.ej. al editar un registro antiguo) quedo inactivo
+  // despues, se mantiene en la lista para no perder el dato ni mostrar el
+  // desplegable vacio.
+  const selectableFarms = farms.filter((f) => f.active || f.id === farmId);
+  const selectableTaskTypes = taskTypes.filter((t) => t.active || t.name === form.task_type);
+  const varieties = allVarieties.filter(
+    (v) => v.fruit_id === currentFruit && (v.active || v.name === form.variety),
+  );
 
   async function addWorker() {
     if (!farmId || !newWorker.trim()) return;
@@ -222,7 +230,7 @@ function HorasPage() {
         data: {
           transcript: text,
           workers: workers.map((w) => w.name),
-          tasks: taskTypes.map((t) => t.name),
+          tasks: selectableTaskTypes.map((t) => t.name),
           varieties: varieties.map((v) => v.name),
           today: todayISO(),
         },
@@ -478,7 +486,7 @@ function HorasPage() {
             value={farmId ?? ""}
             onChange={(e) => setFarmId(e.target.value)}
           >
-            {farms.map((f) => (
+            {selectableFarms.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name} · {f.fruit_name}
               </option>
@@ -603,7 +611,7 @@ function HorasPage() {
             value={form.task_type}
             onChange={(e) => setForm({ ...form, task_type: e.target.value })}
           >
-            {taskTypes.map((t) => (
+            {selectableTaskTypes.map((t) => (
               <option key={t.id} value={t.name}>
                 {t.hint ?? t.name}
               </option>

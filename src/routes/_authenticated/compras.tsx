@@ -93,8 +93,12 @@ function ComprasPage() {
   }
 
   useEffect(() => {
-    if (!farmId && farms.length) setFarmId(farms[0]!.id);
+    if (!farmId && farms.length) setFarmId((farms.find((f) => f.active) ?? farms[0])!.id);
   }, [farms, farmId]);
+
+  // Fincas inactivas no se ofrecen para altas nuevas — salvo que sea la que
+  // ya esta seleccionada, para no perder de vista sus compras existentes.
+  const selectableFarms = farms.filter((f) => f.active || f.id === farmId);
 
   const { data: purchases = [] } = usePurchases(farmId);
   const range = monthRange(month);
@@ -180,7 +184,7 @@ function ComprasPage() {
   return (
     <div>
       <h1 className="mb-4 text-lg font-semibold">Compras de insumos y materiales</h1>
-      <FarmPicker farms={farms} value={farmId} onChange={setFarmId} />
+      <FarmPicker farms={selectableFarms} value={farmId} onChange={setFarmId} />
 
       <div className="surface mb-3 flex items-center gap-3 p-3">
         <AudioMessageButton disabled={dictating} onTranscript={handleDictation} />

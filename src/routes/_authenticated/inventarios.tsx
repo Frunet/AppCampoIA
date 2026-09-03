@@ -173,24 +173,28 @@ function CompaniesTab() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
 
   function openNew() {
     setEditing(null);
     setName("");
+    setActive(true);
     setOpen(true);
   }
   function openEdit(c: Company) {
     setEditing(c);
     setName(c.name);
+    setActive(c.active);
     setOpen(true);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    const payload = { name: name.trim(), active };
     const { error } = editing
-      ? await supabase.from("companies").update({ name: name.trim() }).eq("id", editing.id)
-      : await supabase.from("companies").insert({ name: name.trim() });
+      ? await supabase.from("companies").update(payload).eq("id", editing.id)
+      : await supabase.from("companies").insert(payload);
     if (error) {
       toast.error(error.message);
       return;
@@ -230,6 +234,10 @@ function CompaniesTab() {
                 <Label htmlFor="company-name">Nombre</Label>
                 <Input id="company-name" required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
+                Activa
+              </label>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -241,14 +249,16 @@ function CompaniesTab() {
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
+            <TableHead>Estado</TableHead>
             <TableHead className="w-24 text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!isLoading && companies.length === 0 && <EmptyRow colSpan={2} text="Sin empresas todavía." />}
+          {!isLoading && companies.length === 0 && <EmptyRow colSpan={3} text="Sin empresas todavía." />}
           {companies.map((c) => (
             <TableRow key={c.id}>
               <TableCell className="font-medium">{c.name}</TableCell>
+              <TableCell className="text-muted-foreground">{c.active ? "Activa" : "Inactiva"}</TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(c)}>
                   <Pencil className="size-4" />
@@ -273,24 +283,28 @@ function FruitsTab() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Fruit | null>(null);
   const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
 
   function openNew() {
     setEditing(null);
     setName("");
+    setActive(true);
     setOpen(true);
   }
   function openEdit(f: Fruit) {
     setEditing(f);
     setName(f.name);
+    setActive(f.active);
     setOpen(true);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    const payload = { name: name.trim(), active };
     const { error } = editing
-      ? await supabase.from("fruits").update({ name: name.trim() }).eq("id", editing.id)
-      : await supabase.from("fruits").insert({ name: name.trim() });
+      ? await supabase.from("fruits").update(payload).eq("id", editing.id)
+      : await supabase.from("fruits").insert(payload);
     if (error) {
       toast.error(error.message);
       return;
@@ -330,6 +344,10 @@ function FruitsTab() {
                 <Label htmlFor="fruit-name">Nombre</Label>
                 <Input id="fruit-name" required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
+                Activa
+              </label>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -341,14 +359,16 @@ function FruitsTab() {
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
+            <TableHead>Estado</TableHead>
             <TableHead className="w-24 text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!isLoading && fruits.length === 0 && <EmptyRow colSpan={2} text="Sin frutas todavía." />}
+          {!isLoading && fruits.length === 0 && <EmptyRow colSpan={3} text="Sin frutas todavía." />}
           {fruits.map((f) => (
             <TableRow key={f.id}>
               <TableCell className="font-medium capitalize">{f.name}</TableCell>
+              <TableCell className="text-muted-foreground">{f.active ? "Activa" : "Inactiva"}</TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(f)}>
                   <Pencil className="size-4" />
@@ -375,24 +395,32 @@ function VarietiesTab() {
   const [editing, setEditing] = useState<Variety | null>(null);
   const [name, setName] = useState("");
   const [fruitId, setFruitId] = useState("");
+  const [active, setActive] = useState(true);
+
+  // Fruta activa a elegir para una variedad nueva/editada: la fruta que ya
+  // tenga la variedad se mantiene aunque este inactiva, para no perder el
+  // dato al editar; una fruta inactiva solo desaparece para altas nuevas.
+  const selectableFruits = fruits.filter((f) => f.active || f.id === fruitId);
 
   function openNew() {
     setEditing(null);
     setName("");
-    setFruitId(fruits[0]?.id ?? "");
+    setFruitId(fruits.find((f) => f.active)?.id ?? fruits[0]?.id ?? "");
+    setActive(true);
     setOpen(true);
   }
   function openEdit(v: Variety) {
     setEditing(v);
     setName(v.name);
     setFruitId(v.fruit_id);
+    setActive(v.active);
     setOpen(true);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !fruitId) return;
-    const payload = { name: name.trim(), fruit_id: fruitId };
+    const payload = { name: name.trim(), fruit_id: fruitId, active };
     const { error } = editing
       ? await supabase.from("varieties").update(payload).eq("id", editing.id)
       : await supabase.from("varieties").insert(payload);
@@ -423,7 +451,7 @@ function VarietiesTab() {
         <h2 className="text-sm font-semibold">Variedades</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={openNew} disabled={fruits.length === 0}>
+            <Button size="sm" onClick={openNew} disabled={!fruits.some((f) => f.active)}>
               <Plus className="mr-1.5 size-4" /> Nueva
             </Button>
           </DialogTrigger>
@@ -440,7 +468,7 @@ function VarietiesTab() {
                   value={fruitId}
                   onChange={(e) => setFruitId(e.target.value)}
                 >
-                  {fruits.map((f) => (
+                  {selectableFruits.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
@@ -451,6 +479,10 @@ function VarietiesTab() {
                 <Label htmlFor="variety-name">Nombre</Label>
                 <Input id="variety-name" required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
+                Activa
+              </label>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -463,15 +495,17 @@ function VarietiesTab() {
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Fruta</TableHead>
+            <TableHead>Estado</TableHead>
             <TableHead className="w-24 text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!isLoading && varieties.length === 0 && <EmptyRow colSpan={3} text="Sin variedades todavía." />}
+          {!isLoading && varieties.length === 0 && <EmptyRow colSpan={4} text="Sin variedades todavía." />}
           {varieties.map((v) => (
             <TableRow key={v.id}>
               <TableCell className="font-medium">{v.name}</TableCell>
               <TableCell className="capitalize text-muted-foreground">{fruitName(v.fruit_id)}</TableCell>
+              <TableCell className="text-muted-foreground">{v.active ? "Activa" : "Inactiva"}</TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(v)}>
                   <Pencil className="size-4" />
@@ -498,12 +532,14 @@ function TaskTypesTab() {
   const [name, setName] = useState("");
   const [hint, setHint] = useState("");
   const [isHarvest, setIsHarvest] = useState(false);
+  const [active, setActive] = useState(true);
 
   function openNew() {
     setEditing(null);
     setName("");
     setHint("");
     setIsHarvest(false);
+    setActive(true);
     setOpen(true);
   }
   function openEdit(t: TaskType) {
@@ -511,6 +547,7 @@ function TaskTypesTab() {
     setName(t.name);
     setHint(t.hint ?? "");
     setIsHarvest(t.is_harvest);
+    setActive(t.active);
     setOpen(true);
   }
 
@@ -522,6 +559,7 @@ function TaskTypesTab() {
       hint: hint.trim() || null,
       is_harvest: isHarvest,
       sort_order: editing?.sort_order ?? taskTypes.length + 1,
+      active,
     };
     const { error } = editing
       ? await supabase.from("task_types").update(payload).eq("id", editing.id)
@@ -572,6 +610,10 @@ function TaskTypesTab() {
                 <Checkbox checked={isHarvest} onCheckedChange={(v) => setIsHarvest(v === true)} />
                 Es cosecha/recolección (pide variedad y kg)
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
+                Activo
+              </label>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -585,18 +627,20 @@ function TaskTypesTab() {
             <TableHead>Nombre</TableHead>
             <TableHead>Ayuda</TableHead>
             <TableHead>Cosecha</TableHead>
+            <TableHead>Estado</TableHead>
             <TableHead className="w-24 text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {!isLoading && taskTypes.length === 0 && (
-            <EmptyRow colSpan={4} text="Sin tipos de tarea todavía." />
+            <EmptyRow colSpan={5} text="Sin tipos de tarea todavía." />
           )}
           {taskTypes.map((t) => (
             <TableRow key={t.id}>
               <TableCell className="font-medium">{t.name}</TableCell>
               <TableCell className="text-muted-foreground">{t.hint ?? "—"}</TableCell>
               <TableCell>{t.is_harvest ? "Sí" : "No"}</TableCell>
+              <TableCell className="text-muted-foreground">{t.active ? "Activo" : "Inactivo"}</TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(t)}>
                   <Pencil className="size-4" />
@@ -801,11 +845,15 @@ function WorkersTab() {
     return true;
   });
 
+  // Igual que en Variedades/Fincas: la finca ya asignada al trabajador se
+  // mantiene seleccionable aunque este inactiva, para no perder el dato.
+  const selectableFarms = farms.filter((f) => f.active || f.id === farmId);
+
   function openNew() {
     setEditing(null);
     setName("");
     setIdrh("");
-    setFarmId(farmFilter || farms[0]?.id || "");
+    setFarmId(farmFilter || farms.find((f) => f.active)?.id || farms[0]?.id || "");
     setActive(true);
     setOpen(true);
   }
@@ -890,7 +938,7 @@ function WorkersTab() {
                     value={farmId}
                     onChange={(e) => setFarmId(e.target.value)}
                   >
-                    {farms.map((f) => (
+                    {selectableFarms.map((f) => (
                       <option key={f.id} value={f.id}>
                         {f.name}
                       </option>
@@ -980,13 +1028,21 @@ function FarmsTab() {
   const [companyId, setCompanyId] = useState("");
   const [fruitId, setFruitId] = useState("");
   const [surface, setSurface] = useState("");
+  const [active, setActive] = useState(true);
+
+  // Igual que en Variedades: la fruta/empresa ya asignada se mantiene
+  // seleccionable aunque este inactiva, para no perder el dato al editar;
+  // una inactiva solo desaparece del desplegable para altas nuevas.
+  const selectableFruits = fruits.filter((f) => f.active || f.id === fruitId);
+  const selectableCompanies = companies.filter((c) => c.active || c.id === companyId);
 
   function openNew() {
     setEditing(null);
     setName("");
     setCompanyId("");
-    setFruitId(fruits[0]?.id ?? "");
+    setFruitId(fruits.find((f) => f.active)?.id ?? fruits[0]?.id ?? "");
     setSurface("");
+    setActive(true);
     setOpen(true);
   }
   function openEdit(f: Farm) {
@@ -995,6 +1051,7 @@ function FarmsTab() {
     setCompanyId(f.company_id ?? "");
     setFruitId(f.fruit_id);
     setSurface(f.surface_m2 == null ? "" : String(f.surface_m2));
+    setActive(f.active);
     setOpen(true);
   }
 
@@ -1006,6 +1063,7 @@ function FarmsTab() {
       company_id: companyId || null,
       fruit_id: fruitId,
       surface_m2: surface === "" ? null : Number(surface),
+      active,
     };
     const { error } = editing
       ? await supabase.from("farms").update(payload).eq("id", editing.id)
@@ -1037,7 +1095,7 @@ function FarmsTab() {
         <h2 className="text-sm font-semibold">Fincas</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={openNew} disabled={fruits.length === 0}>
+            <Button size="sm" onClick={openNew} disabled={!fruits.some((f) => f.active)}>
               <Plus className="mr-1.5 size-4" /> Nueva
             </Button>
           </DialogTrigger>
@@ -1059,7 +1117,7 @@ function FarmsTab() {
                     value={fruitId}
                     onChange={(e) => setFruitId(e.target.value)}
                   >
-                    {fruits.map((f) => (
+                    {selectableFruits.map((f) => (
                       <option key={f.id} value={f.id}>
                         {f.name}
                       </option>
@@ -1088,13 +1146,17 @@ function FarmsTab() {
                   onChange={(e) => setCompanyId(e.target.value)}
                 >
                   <option value="">Sin empresa</option>
-                  {companies.map((c) => (
+                  {selectableCompanies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </select>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
+                Activa
+              </label>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -1114,11 +1176,12 @@ function FarmsTab() {
               <TableHead>Fruta</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead className="text-right">Superficie</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead className="w-24 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!isLoading && farms.length === 0 && <EmptyRow colSpan={5} text="Sin fincas todavía." />}
+            {!isLoading && farms.length === 0 && <EmptyRow colSpan={6} text="Sin fincas todavía." />}
             {farms.map((f) => (
               <TableRow key={f.id}>
                 <TableCell className="font-medium">{f.name}</TableCell>
@@ -1127,6 +1190,7 @@ function FarmsTab() {
                 <TableCell className="text-right">
                   {f.surface_m2 == null ? "—" : `${Number(f.surface_m2).toLocaleString("es-ES")} m²`}
                 </TableCell>
+                <TableCell className="text-muted-foreground">{f.active ? "Activa" : "Inactiva"}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(f)}>
                     <Pencil className="size-4" />

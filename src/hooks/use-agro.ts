@@ -23,7 +23,7 @@ export function useFarms() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("farms")
-        .select("id,name,fruit_id,company_id,surface_m2,fruits(name)")
+        .select("id,name,fruit_id,company_id,surface_m2,active,fruits(name)")
         .order("name");
       if (error) throw error;
       return (data ?? []).map((f) => ({
@@ -32,6 +32,7 @@ export function useFarms() {
         fruit_id: f.fruit_id,
         company_id: f.company_id,
         surface_m2: f.surface_m2,
+        active: f.active,
         fruit_name: (f.fruits as { name: string } | null)?.name ?? "",
       })) as Farm[];
     },
@@ -59,7 +60,7 @@ export function useCompanies() {
   return useQuery({
     queryKey: ["companies"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("companies").select("id,name").order("name");
+      const { data, error } = await supabase.from("companies").select("id,name,active").order("name");
       if (error) throw error;
       return (data ?? []) as Company[];
     },
@@ -70,7 +71,7 @@ export function useFruits() {
   return useQuery({
     queryKey: ["fruits"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fruits").select("id,name").order("name");
+      const { data, error } = await supabase.from("fruits").select("id,name,active").order("name");
       if (error) throw error;
       return (data ?? []) as Fruit[];
     },
@@ -83,7 +84,7 @@ export function useVarieties() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("varieties")
-        .select("id,fruit_id,name")
+        .select("id,fruit_id,name,active")
         .order("name");
       if (error) throw error;
       return (data ?? []) as Variety[];
@@ -97,7 +98,7 @@ export function useTaskTypes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("task_types")
-        .select("id,name,hint,is_harvest,sort_order")
+        .select("id,name,hint,is_harvest,sort_order,active")
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("name");
       if (error) throw error;

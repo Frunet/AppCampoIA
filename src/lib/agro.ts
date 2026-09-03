@@ -8,6 +8,7 @@ export type Farm = {
   fruit_name: string;
   company_id: string | null;
   surface_m2: number | null;
+  active: boolean;
 };
 export type Worker = {
   id: string;
@@ -20,15 +21,16 @@ export type Category = { id: string; name: string };
 
 // Catalogos de Inventarios (Fase 3) — sustituyen a las constantes estaticas
 // TASK_TYPES/TASK_TYPE_HINT/VARIETIES/HARVEST_TASK que vivian aqui antes.
-export type Company = { id: string; name: string };
-export type Fruit = { id: string; name: string };
-export type Variety = { id: string; fruit_id: string; name: string };
+export type Company = { id: string; name: string; active: boolean };
+export type Fruit = { id: string; name: string; active: boolean };
+export type Variety = { id: string; fruit_id: string; name: string; active: boolean };
 export type TaskType = {
   id: string;
   name: string;
   hint: string | null;
   is_harvest: boolean;
   sort_order: number | null;
+  active: boolean;
 };
 export type LaborCostRate = {
   id: string;

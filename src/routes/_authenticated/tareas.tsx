@@ -62,8 +62,12 @@ function TareasPage() {
   });
 
   useEffect(() => {
-    if (!farmId && farms.length) setFarmId(farms[0]!.id);
+    if (!farmId && farms.length) setFarmId((farms.find((f) => f.active) ?? farms[0])!.id);
   }, [farms, farmId]);
+
+  // Igual que con los trabajadores: una finca inactiva no se ofrece para
+  // altas nuevas, salvo que sea la que ya esta seleccionada.
+  const selectableFarms = farms.filter((f) => f.active || f.id === farmId);
 
   const { data: tasks = [] } = useTasks(farmId);
   const { data: workers = [] } = useWorkers(farmId);
@@ -139,7 +143,7 @@ function TareasPage() {
   return (
     <div>
       <h1 className="mb-4 text-lg font-semibold">Tareas de campo</h1>
-      <FarmPicker farms={farms} value={farmId} onChange={setFarmId} />
+      <FarmPicker farms={selectableFarms} value={farmId} onChange={setFarmId} />
 
       <form onSubmit={create} className="surface mb-5 space-y-3 p-4">
         <div className="space-y-1.5">

@@ -34,16 +34,19 @@ export type Database = {
       }
       companies: {
         Row: {
+          active: boolean
           created_at: string
           id: string
           name: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           id?: string
           name: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           id?: string
           name?: string
@@ -119,6 +122,7 @@ export type Database = {
       }
       farms: {
         Row: {
+          active: boolean
           company_id: string | null
           created_at: string
           fruit_id: string
@@ -127,6 +131,7 @@ export type Database = {
           surface_m2: number | null
         }
         Insert: {
+          active?: boolean
           company_id?: string | null
           created_at?: string
           fruit_id: string
@@ -135,6 +140,7 @@ export type Database = {
           surface_m2?: number | null
         }
         Update: {
+          active?: boolean
           company_id?: string | null
           created_at?: string
           fruit_id?: string
@@ -161,16 +167,19 @@ export type Database = {
       }
       fruits: {
         Row: {
+          active: boolean
           created_at: string
           id: string
           name: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           id?: string
           name: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           id?: string
           name?: string
@@ -305,6 +314,7 @@ export type Database = {
       }
       task_types: {
         Row: {
+          active: boolean
           created_at: string
           hint: string | null
           id: string
@@ -313,6 +323,7 @@ export type Database = {
           sort_order: number | null
         }
         Insert: {
+          active?: boolean
           created_at?: string
           hint?: string | null
           id?: string
@@ -321,6 +332,7 @@ export type Database = {
           sort_order?: number | null
         }
         Update: {
+          active?: boolean
           created_at?: string
           hint?: string | null
           id?: string
@@ -394,18 +406,21 @@ export type Database = {
       }
       varieties: {
         Row: {
+          active: boolean
           created_at: string
           fruit_id: string
           id: string
           name: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           fruit_id: string
           id?: string
           name: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           fruit_id?: string
           id?: string
