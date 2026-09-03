@@ -1,18 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, Pencil, Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFarms, useTaskTypes, useVarieties, useWorkHours, useWorkers } from "@/hooks/use-agro";
-import { FarmPicker } from "@/components/FarmPicker";
 import { VoiceInput } from "@/components/VoiceInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayISO, type Worker } from "@/lib/agro";
-import { exportWorkHoursToExcel } from "@/lib/export-horas";
 import { parseHoursFromVoice } from "@/lib/horas-voice.functions";
 import { AudioMessageButton } from "@/components/AudioMessageButton";
 import { N8nJornalButton } from "@/components/N8nJornalButton";
@@ -126,8 +124,6 @@ function HorasPage() {
   const [newWorker, setNewWorker] = useState("");
   const [showWorker, setShowWorker] = useState(false);
   const [dictating, setDictating] = useState(false);
-  const [exportFrom, setExportFrom] = useState("");
-  const [exportTo, setExportTo] = useState("");
 
   // Borrador de altas nuevas: no se persiste (ni BD ni localStorage). Si se
   // recarga la pagina se pierde — comportamiento aceptado explicitamente.
@@ -192,24 +188,6 @@ function HorasPage() {
   const isHarvest = taskTypes.find((t) => t.name === form.task_type)?.is_harvest ?? false;
   const currentFruit = farms.find((f) => f.id === farmId)?.fruit_id;
   const varieties = allVarieties.filter((v) => v.fruit_id === currentFruit);
-
-  function exportExcel() {
-    const from = exportFrom || weekFrom;
-    const to = exportTo || weekTo;
-    if (from > to) {
-      toast.error("La fecha inicial es posterior a la final");
-      return;
-    }
-    const rows = records.filter((r) => r.work_date >= from && r.work_date <= to);
-    if (!rows.length) {
-      toast.error("No hay registros en ese rango de fechas");
-      return;
-    }
-    const farmName = farms.find((f) => f.id === farmId)?.name ?? "finca";
-    exportWorkHoursToExcel(rows, taskTypes, { farmName, from, to });
-    toast.success(`Excel generado (${rows.length} registros)`);
-  }
-
 
   async function addWorker() {
     if (!farmId || !newWorker.trim()) return;
@@ -470,7 +448,6 @@ function HorasPage() {
   return (
     <div>
       <h1 className="mb-4 text-lg font-semibold">Horas de trabajadores</h1>
-      <FarmPicker farms={farms} value={farmId} onChange={setFarmId} />
 
       <div className="surface mb-3 flex items-center gap-3 p-3">
         <AudioMessageButton disabled={dictating} onTranscript={handleDictation} />
@@ -481,14 +458,27 @@ function HorasPage() {
         </p>
       </div>
 
-      <div className="surface mb-3 flex items-center gap-3 p-3">
+      <div className="surface mb-3 p-3">
         <N8nJornalButton onRegistered={() => qc.invalidateQueries({ queryKey: ["work_hours"] })} />
-        <p className="text-xs text-muted-foreground">
-          Crea el parte directamente por voz (IA de n8n) — sin pasar por el formulario.
-        </p>
       </div>
 
       <form onSubmit={save} className="surface mb-5 space-y-3 p-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="farm">Finca</Label>
+          <select
+            id="farm"
+            className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
+            value={farmId ?? ""}
+            onChange={(e) => setFarmId(e.target.value)}
+          >
+            {farms.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name} · {f.fruit_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <Label>
@@ -758,39 +748,6 @@ function HorasPage() {
         </p>
       </div>
 
-      <div className="surface mb-4 space-y-2 p-3">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Exportar a Excel por rango de fechas
-        </Label>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="exp-from" className="text-xs">
-              Desde
-            </Label>
-            <Input
-              id="exp-from"
-              type="date"
-              value={exportFrom || last7Days[0]}
-              onChange={(e) => setExportFrom(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exp-to" className="text-xs">
-              Hasta
-            </Label>
-            <Input
-              id="exp-to"
-              type="date"
-              value={exportTo || last7Days[6]}
-              onChange={(e) => setExportTo(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button type="button" variant="outline" size="sm" className="w-full" onClick={exportExcel}>
-          <FileSpreadsheet className="mr-1.5 size-4" /> Exportar Excel
-        </Button>
-      </div>
-
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Label className="text-sm font-medium">Filtrar por día</Label>
         <Input
@@ -830,12 +787,12 @@ function HorasPage() {
                 {rows.reduce((s, r) => s + Number(r.hours), 0).toFixed(1)} h
               </span>
             </div>
-            <Table>
+            <Table className="[table-layout:fixed]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="h-8">Trabajador</TableHead>
-                  <TableHead className="h-8">Tipo de tarea</TableHead>
-                  <TableHead className="h-8 text-right">Horas</TableHead>
+                  <TableHead className="h-8 w-28">Trabajador</TableHead>
+                  <TableHead className="h-8 w-32">Tipo de tarea</TableHead>
+                  <TableHead className="h-8 w-12 text-right">Horas</TableHead>
                   <TableHead className="h-8">Notas</TableHead>
                   <TableHead className="h-8 w-28 text-right">Acciones</TableHead>
                 </TableRow>
@@ -843,9 +800,16 @@ function HorasPage() {
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="py-1 font-medium">{r.worker_name}</TableCell>
-                    <TableCell className="py-1 text-muted-foreground">{r.task_type}</TableCell>
-                    <TableCell className="py-1 text-right font-semibold">{Number(r.hours)}</TableCell>
+                    <TableCell className="w-28 py-1 font-medium">{r.worker_name}</TableCell>
+                    <TableCell
+                      className="w-32 truncate py-1 text-muted-foreground"
+                      title={r.task_type}
+                    >
+                      {r.task_type}
+                    </TableCell>
+                    <TableCell className="w-12 py-1 text-right font-semibold">
+                      {Number(r.hours)}
+                    </TableCell>
                     <TableCell
                       className="max-w-48 truncate py-1 text-muted-foreground"
                       title={r.notes ?? ""}

@@ -3,6 +3,7 @@ import { Loader2, Mic, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 type Props = { disabled?: boolean; onRegistered?: () => void };
 
@@ -159,7 +160,7 @@ export function N8nJornalButton({ disabled, onRegistered }: Props) {
   const inConversation = assistantMessage !== null;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex w-full flex-col gap-1.5">
       {inConversation && (
         <div className="flex items-start gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs">
           <p className="flex-1 text-muted-foreground">{assistantMessage}</p>
@@ -178,11 +179,12 @@ export function N8nJornalButton({ disabled, onRegistered }: Props) {
       <Button
         type="button"
         variant={recording ? "destructive" : "secondary"}
-        size="sm"
+        size="lg"
         disabled={disabled || busy}
         onClick={recording ? stop : start}
         aria-label={recording ? "Detener y enviar" : inConversation ? "Responder por voz" : "Crear parte por voz (IA)"}
         title={recording ? "Detener y enviar" : inConversation ? "Responder por voz" : "Crear parte por voz (IA)"}
+        className={cn("w-full", !recording && "bg-[#FAB514] font-bold text-black hover:bg-[#e0a410]")}
       >
         {busy ? (
           <Loader2 className="size-4 animate-spin" />
