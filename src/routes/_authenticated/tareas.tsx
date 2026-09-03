@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
@@ -13,7 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { STATUS_LABEL, todayISO, type TaskStatus } from "@/lib/agro";
 import { cn } from "@/lib/utils";
 
+// PENDIENTE DE DESARROLLO/REDISEÑO — oculta intencionadamente del menu
+// (ver AppShell.tsx) y bloqueada por URL directa con este beforeLoad. El
+// codigo y la tabla tasks se dejan intactos, no se borra nada.
 export const Route = createFileRoute("/_authenticated/tareas")({
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
   head: () => ({
     meta: [
       { title: "Tareas de campo · Gestión Agrícola" },

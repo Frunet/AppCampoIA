@@ -1,24 +1,17 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Archive,
-  Clock,
-  ShoppingCart,
-  ListChecks,
-  BarChart3,
-  MessageSquare,
-  LogOut,
-} from "lucide-react";
+import { Archive, Clock, BarChart3, MessageSquare, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/use-agro";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 
+// Compras y Tareas ocultas (pendientes de desarrollo/rediseño, ver
+// routes/_authenticated/compras.tsx y tareas.tsx) — no se listan aqui pero
+// las rutas y las tablas siguen existiendo.
 const TABS = [
   { to: "/horas", label: "Horas", icon: Clock },
-  { to: "/compras", label: "Compras", icon: ShoppingCart },
-  { to: "/tareas", label: "Tareas", icon: ListChecks },
   { to: "/informes", label: "Informes", icon: BarChart3 },
   { to: "/chat", label: "Chat", icon: MessageSquare },
   // Solo admin: la ruta tambien se protege a nivel de beforeLoad, esto solo

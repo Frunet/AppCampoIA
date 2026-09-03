@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type {
+  AppSetting,
   Category,
   Company,
+  CropYear,
   Farm,
   Fruit,
   LaborCostRate,
@@ -183,7 +185,7 @@ export function useWorkHours(farmId?: string, range?: { from: string; to: string
       let q = supabase
         .from("work_hours")
         .select(
-          "id,farm_id,worker_id,worker_name,work_date,hours,task_type,variety,kg,notes,created_at,created_by,updated_at,updated_by",
+          "id,farm_id,worker_id,worker_name,work_date,hours,task_type,variety,kg,notes,created_at,created_by,updated_at,updated_by,crop_year_id",
         )
         .order("work_date", { ascending: false });
       if (farmId) q = q.eq("farm_id", farmId);
@@ -233,6 +235,46 @@ export function useTasks(farmId?: string) {
       return (data ?? []) as Task[];
     },
   });
+}
+
+export function useCropYears(farmId?: string) {
+  return useQuery({
+    queryKey: ["crop_years", farmId ?? "all"],
+    queryFn: async () => {
+      let q = supabase
+        .from("crop_years")
+        .select("id,farm_id,name,crop_start,crop_end,harvest_start,harvest_end")
+        .order("crop_start", { ascending: false });
+      if (farmId) q = q.eq("farm_id", farmId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as CropYear[];
+    },
+  });
+}
+
+export function useAppSetting(key: string) {
+  return useQuery({
+    queryKey: ["app_settings", key],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("key,value")
+        .eq("key", key)
+        .maybeSingle();
+      if (error) throw error;
+      return data as AppSetting | null;
+    },
+  });
+}
+
+/** Horas por jornal, como numero. 7 (el valor de seed) si la fila aun no
+ * existe o el valor guardado no es un numero valido. */
+export function useHoursPerJornal() {
+  const { data, ...rest } = useAppSetting("hours_per_jornal");
+  const parsed = data ? Number(data.value) : NaN;
+  const hoursPerJornal = Number.isFinite(parsed) && parsed > 0 ? parsed : 7;
+  return { ...rest, data: hoursPerJornal };
 }
 
 export function useIsAdmin() {

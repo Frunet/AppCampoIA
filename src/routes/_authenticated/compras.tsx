@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
@@ -14,7 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UNITS, eur, monthKey, monthLabel, monthRange, todayISO } from "@/lib/agro";
 
+// PENDIENTE DE DESARROLLO/REDISEÑO — oculta intencionadamente del menu
+// (ver AppShell.tsx) y bloqueada por URL directa con este beforeLoad. El
+// codigo y la tabla purchases se dejan intactos, no se borra nada.
 export const Route = createFileRoute("/_authenticated/compras")({
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
   head: () => ({
     meta: [
       { title: "Compras de insumos · Gestión Agrícola" },

@@ -558,51 +558,56 @@ function HorasPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Trabajador</TableHead>
-                  <TableHead>Tipo de tarea</TableHead>
-                  <TableHead className="text-right">Horas</TableHead>
-                  <TableHead>Notas</TableHead>
-                  <TableHead className="w-20 text-right">Acciones</TableHead>
+                  <TableHead className="h-8">Trabajador</TableHead>
+                  <TableHead className="h-8">Tipo de tarea</TableHead>
+                  <TableHead className="h-8 text-right">Horas</TableHead>
+                  <TableHead className="h-8">Notas</TableHead>
+                  <TableHead className="h-8 w-28 text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.worker_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.task_type}</TableCell>
-                    <TableCell className="text-right font-semibold">{Number(r.hours)}</TableCell>
-                    <TableCell className="max-w-48 truncate text-muted-foreground" title={r.notes ?? ""}>
+                    <TableCell className="py-1 font-medium">{r.worker_name}</TableCell>
+                    <TableCell className="py-1 text-muted-foreground">{r.task_type}</TableCell>
+                    <TableCell className="py-1 text-right font-semibold">{Number(r.hours)}</TableCell>
+                    <TableCell
+                      className="max-w-48 truncate py-1 text-muted-foreground"
+                      title={r.notes ?? ""}
+                    >
                       {r.notes ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Editar"
-                        onClick={() => {
-                          setEditingId(r.id);
-                          setForm({
-                            worker_ids: r.worker_id ? [r.worker_id] : [],
-                            work_date: r.work_date,
-                            hours: String(r.hours),
-                            task_type: r.task_type,
-                            variety: r.variety ?? "",
-                            kg: r.kg == null ? "" : String(r.kg),
-                            notes: r.notes ?? "",
-                          });
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Eliminar"
-                        onClick={() => remove(r.id)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                    <TableCell className="py-1 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Editar"
+                          onClick={() => {
+                            setEditingId(r.id);
+                            setForm({
+                              worker_ids: r.worker_id ? [r.worker_id] : [],
+                              work_date: r.work_date,
+                              hours: String(r.hours),
+                              task_type: r.task_type,
+                              variety: r.variety ?? "",
+                              kg: r.kg == null ? "" : String(r.kg),
+                              notes: r.notes ?? "",
+                            });
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Eliminar"
+                          onClick={() => remove(r.id)}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

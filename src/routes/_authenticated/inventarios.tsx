@@ -1,11 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { KeyRound, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  useAppSetting,
   useCompanies,
+  useCropYears,
   useFarms,
   useFruits,
   useLaborCostRates,
@@ -14,7 +16,18 @@ import {
   useVarieties,
   useWorkers,
 } from "@/hooks/use-agro";
-import type { AppRole, Company, Farm, Fruit, LaborCostRate, TaskType, UserRow, Variety, Worker } from "@/lib/agro";
+import type {
+  AppRole,
+  Company,
+  CropYear,
+  Farm,
+  Fruit,
+  LaborCostRate,
+  TaskType,
+  UserRow,
+  Variety,
+  Worker,
+} from "@/lib/agro";
 import { eur, todayISO } from "@/lib/agro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +93,7 @@ function InventariosPage() {
           <TabsTrigger value="empresas">Empresas</TabsTrigger>
           <TabsTrigger value="tareas">Tipos de tarea</TabsTrigger>
           <TabsTrigger value="frutas">Frutas y variedades</TabsTrigger>
-          <TabsTrigger value="coste">Coste hora</TabsTrigger>
+          <TabsTrigger value="coste">€ y horas</TabsTrigger>
           <TabsTrigger value="responsables">Responsables</TabsTrigger>
         </TabsList>
 
@@ -608,6 +621,40 @@ function LaborCostTab() {
   const [hourlyRate, setHourlyRate] = useState("");
   const [validFrom, setValidFrom] = useState(todayISO());
 
+  const { data: jornalSetting } = useAppSetting("hours_per_jornal");
+  const [hoursPerJornal, setHoursPerJornal] = useState("7");
+  const [savingJornal, setSavingJornal] = useState(false);
+  // El input sigue al valor guardado en la base salvo mientras el usuario
+  // lo esta editando (para no pisarle lo que esta escribiendo si la query
+  // refresca en segundo plano).
+  const [jornalDirty, setJornalDirty] = useState(false);
+  useEffect(() => {
+    if (!jornalDirty && jornalSetting) setHoursPerJornal(jornalSetting.value);
+  }, [jornalSetting, jornalDirty]);
+
+  async function saveJornal(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Number(hoursPerJornal);
+    if (!value || value <= 0) {
+      toast.error("Indica un número de horas válido");
+      return;
+    }
+    setSavingJornal(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({ key: "hours_per_jornal", value: String(value) });
+      if (error) throw error;
+      toast.success("Horas por jornal actualizado");
+      setJornalDirty(false);
+      qc.invalidateQueries({ queryKey: ["app_settings", "hours_per_jornal"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar");
+    } finally {
+      setSavingJornal(false);
+    }
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const rate = Number(hourlyRate);
@@ -634,6 +681,35 @@ function LaborCostTab() {
 
   return (
     <div className="space-y-4">
+      <form onSubmit={saveJornal} className="surface space-y-3 p-4">
+        <h2 className="text-sm font-semibold">Horas por jornal</h2>
+        <p className="text-xs text-muted-foreground">
+          Valor único actual (no histórico): cuántas horas equivalen a un jornal. Se usa para
+          convertir horas en jornales en Informes.
+        </p>
+        <div className="flex items-end gap-2">
+          <div className="max-w-32 space-y-1.5">
+            <Label htmlFor="hpj">Horas por jornal</Label>
+            <Input
+              id="hpj"
+              type="number"
+              step="0.5"
+              min="0.5"
+              inputMode="decimal"
+              required
+              value={hoursPerJornal}
+              onChange={(e) => {
+                setJornalDirty(true);
+                setHoursPerJornal(e.target.value);
+              }}
+            />
+          </div>
+          <Button type="submit" disabled={savingJornal}>
+            {savingJornal ? "Guardando…" : "Guardar"}
+          </Button>
+        </div>
+      </form>
+
       <form onSubmit={save} className="surface space-y-3 p-4">
         <h2 className="text-sm font-semibold">Añadir nuevo coste de hora</h2>
         <p className="text-xs text-muted-foreground">
@@ -1023,6 +1099,10 @@ function FarmsTab() {
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
             </form>
+
+            {/* Solo tiene sentido gestionar años de cultivo de una finca que
+                ya existe (necesita farm.id). En "Nueva finca" no se muestra. */}
+            {editing && <CropYearsSection farm={editing} />}
           </DialogContent>
         </Dialog>
       </div>
@@ -1058,6 +1138,241 @@ function FarmsTab() {
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Años de cultivo (dentro de la ficha de cada finca)
+// ---------------------------------------------------------------------------
+
+const emptyCropYear = {
+  name: "",
+  crop_start: "",
+  crop_end: "",
+  harvest_start: "",
+  harvest_end: "",
+};
+
+function CropYearsSection({ farm }: { farm: Farm }) {
+  const qc = useQueryClient();
+  const { data: cropYears = [], isLoading } = useCropYears(farm.id);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<CropYear | null>(null);
+  const [form, setForm] = useState(emptyCropYear);
+  const [recalculating, setRecalculating] = useState(false);
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["crop_years", farm.id] });
+  }
+
+  function openNew() {
+    setEditing(null);
+    setForm(emptyCropYear);
+    setShowForm(true);
+  }
+  function openEdit(cy: CropYear) {
+    setEditing(cy);
+    setForm({
+      name: cy.name,
+      crop_start: cy.crop_start,
+      crop_end: cy.crop_end,
+      harvest_start: cy.harvest_start,
+      harvest_end: cy.harvest_end,
+    });
+    setShowForm(true);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.crop_start || !form.crop_end || !form.harvest_start || !form.harvest_end) {
+      toast.error("Rellena el nombre y las 4 fechas");
+      return;
+    }
+    if (form.crop_end < form.crop_start) {
+      toast.error("El fin de cultivo es anterior al inicio");
+      return;
+    }
+    if (form.harvest_end < form.harvest_start) {
+      toast.error("El fin de cosecha es anterior al inicio");
+      return;
+    }
+    const payload = {
+      farm_id: farm.id,
+      name: form.name.trim(),
+      crop_start: form.crop_start,
+      crop_end: form.crop_end,
+      harvest_start: form.harvest_start,
+      harvest_end: form.harvest_end,
+    };
+    const { error } = editing
+      ? await supabase.from("crop_years").update(payload).eq("id", editing.id)
+      : await supabase.from("crop_years").insert(payload);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(editing ? "Año de cultivo actualizado" : "Año de cultivo creado");
+    setShowForm(false);
+    refresh();
+  }
+
+  async function remove(id: string) {
+    const { error } = await supabase.from("crop_years").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Año de cultivo eliminado");
+    refresh();
+  }
+
+  // No automatico: solo cuando se pulsa el boton. Recorre TODOS los
+  // work_hours de la finca (no solo un mes) con las fechas actuales de sus
+  // crop_years — misma logica que el trigger de horas.tsx, en bloque.
+  async function recalculate() {
+    setRecalculating(true);
+    try {
+      const { error } = await supabase.rpc("recalculate_crop_years", { p_farm_id: farm.id });
+      if (error) throw error;
+      toast.success("Asignaciones recalculadas");
+      qc.invalidateQueries({ queryKey: ["work_hours"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo recalcular");
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Años de cultivo</h3>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={recalculate}
+            disabled={recalculating || cropYears.length === 0}
+            title="Recalcula el año de cultivo de todos los registros de horas de esta finca, según las fechas actuales"
+          >
+            <RefreshCw className="mr-1.5 size-3.5" />
+            {recalculating ? "Recalculando…" : "Recalcular asignaciones"}
+          </Button>
+          <Button type="button" size="sm" onClick={openNew}>
+            <Plus className="mr-1.5 size-4" /> Nuevo
+          </Button>
+        </div>
+      </div>
+
+      {showForm && (
+        <form onSubmit={save} className="surface space-y-2.5 p-3">
+          <div className="space-y-1">
+            <Label htmlFor="cy-name" className="text-xs">
+              Nombre
+            </Label>
+            <Input
+              id="cy-name"
+              required
+              placeholder='Ej. "AÑO 2026"'
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="cy-cs" className="text-xs">
+                Inicio cultivo
+              </Label>
+              <Input
+                id="cy-cs"
+                type="date"
+                required
+                value={form.crop_start}
+                onChange={(e) => setForm({ ...form, crop_start: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cy-ce" className="text-xs">
+                Fin cultivo
+              </Label>
+              <Input
+                id="cy-ce"
+                type="date"
+                required
+                value={form.crop_end}
+                onChange={(e) => setForm({ ...form, crop_end: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cy-hs" className="text-xs">
+                Inicio cosecha
+              </Label>
+              <Input
+                id="cy-hs"
+                type="date"
+                required
+                value={form.harvest_start}
+                onChange={(e) => setForm({ ...form, harvest_start: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cy-he" className="text-xs">
+                Fin cosecha
+              </Label>
+              <Input
+                id="cy-he"
+                type="date"
+                required
+                value={form.harvest_end}
+                onChange={(e) => setForm({ ...form, harvest_end: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" className="flex-1">
+              Guardar
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      )}
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="h-8">Nombre</TableHead>
+            <TableHead className="h-8">Cultivo</TableHead>
+            <TableHead className="h-8">Cosecha</TableHead>
+            <TableHead className="h-8 w-20 text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!isLoading && cropYears.length === 0 && (
+            <EmptyRow colSpan={4} text="Sin años de cultivo todavía." />
+          )}
+          {cropYears.map((cy) => (
+            <TableRow key={cy.id}>
+              <TableCell className="py-1 font-medium">{cy.name}</TableCell>
+              <TableCell className="py-1 text-xs text-muted-foreground">
+                {cy.crop_start} → {cy.crop_end}
+              </TableCell>
+              <TableCell className="py-1 text-xs text-muted-foreground">
+                {cy.harvest_start} → {cy.harvest_end}
+              </TableCell>
+              <TableCell className="py-1 text-right">
+                <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => openEdit(cy)}>
+                  <Pencil className="size-4" />
+                </Button>
+                <DeleteButton label={`el año "${cy.name}"`} onConfirm={() => remove(cy.id)} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

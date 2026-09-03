@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import {
@@ -15,7 +15,9 @@ import {
 import { toast } from "sonner";
 import {
   useCategories,
+  useCropYears,
   useFarms,
+  useHoursPerJornal,
   useLaborCostRates,
   usePurchases,
   useTaskTypes,
@@ -26,12 +28,14 @@ import { FarmPicker } from "@/components/FarmPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   eur,
   monthKey,
   monthLabel,
   monthRange,
+  monthsBetween,
   rateForDate,
   type Farm,
   type TaskType,
@@ -193,6 +197,10 @@ function InformesPage() {
             </div>
           </div>
 
+          <div className="mb-5">
+            <JornalesReport farms={farms} taskTypes={taskTypes} />
+          </div>
+
           <ExportHorasCard farms={farms} taskTypes={taskTypes} defaultRange={range} />
         </TabsContent>
 
@@ -278,6 +286,201 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="surface p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Jornales por tarea y mes, para un año de cultivo de una finca.
+// ---------------------------------------------------------------------------
+
+function JornalesReport({ farms, taskTypes }: { farms: Farm[]; taskTypes: TaskType[] }) {
+  const [farmId, setFarmId] = useState<string | undefined>(undefined);
+  const { data: cropYears = [] } = useCropYears(farmId);
+  const [cropYearId, setCropYearId] = useState<string | undefined>(undefined);
+  const { data: hoursPerJornal } = useHoursPerJornal();
+
+  useEffect(() => {
+    if (!farmId && farms.length) setFarmId(farms[0]!.id);
+  }, [farms, farmId]);
+
+  // Si la finca cambia (o su lista de años se carga/cambia) y el año
+  // seleccionado ya no pertenece a esta finca, cae al primero disponible.
+  useEffect(() => {
+    if (cropYears.length && !cropYears.some((cy) => cy.id === cropYearId)) {
+      setCropYearId(cropYears[0]!.id);
+    } else if (cropYears.length === 0) {
+      setCropYearId(undefined);
+    }
+  }, [cropYears, cropYearId]);
+
+  const selectedCropYear = cropYears.find((cy) => cy.id === cropYearId);
+  const yearRange = selectedCropYear
+    ? { from: selectedCropYear.crop_start, to: selectedCropYear.crop_end }
+    : undefined;
+  const { data: yearHours = [] } = useWorkHours(farmId, yearRange);
+
+  // "Sin año asignado": todos los registros de la finca (no solo un rango),
+  // para detectar cualquiera que se haya quedado sin encajar en ningun año
+  // de cultivo. Se fuerza el camino con rango de useWorkHours (limite 5000
+  // en vez de 500) con un rango deliberadamente amplio, para no toparse con
+  // el mismo truncado silencioso que tenia el KPI de Horas antes de
+  // corregirlo.
+  const allRange = farmId ? { from: "1900-01-01", to: "2999-12-31" } : undefined;
+  const { data: allHours = [] } = useWorkHours(farmId, allRange);
+  const unassigned = allHours
+    .filter((r) => r.crop_year_id == null)
+    .sort((a, b) => (a.work_date < b.work_date ? -1 : 1));
+
+  const months = useMemo(
+    () => (selectedCropYear ? monthsBetween(selectedCropYear.crop_start, selectedCropYear.crop_end) : []),
+    [selectedCropYear],
+  );
+
+  const matrix = useMemo(() => {
+    return taskTypes.map((tt) => {
+      const taskHours = yearHours.filter((r) => r.crop_year_id === cropYearId && r.task_type === tt.name);
+      const cells = months.map((m) => {
+        const sumHoras = taskHours
+          .filter((r) => r.work_date.slice(0, 7) === m)
+          .reduce((s, r) => s + Number(r.hours), 0);
+        return Math.round((sumHoras / hoursPerJornal) * 10) / 10;
+      });
+      // El total no es la suma de las celdas ya redondeadas (arrastraria
+      // error de redondeo mes a mes): se calcula directo desde las horas
+      // totales de la tarea en el año y se redondea una sola vez.
+      const totalHoras = taskHours.reduce((s, r) => s + Number(r.hours), 0);
+      const total = Math.round((totalHoras / hoursPerJornal) * 10) / 10;
+      return { taskType: tt.name, cells, total };
+    });
+  }, [taskTypes, yearHours, cropYearId, months, hoursPerJornal]);
+
+  const monthTotals = months.map((_, i) =>
+    Math.round(matrix.reduce((s, row) => s + row.cells[i]!, 0) * 10) / 10,
+  );
+  const grandTotal = Math.round(matrix.reduce((s, row) => s + row.total, 0) * 10) / 10;
+
+  return (
+    <div className="surface p-4">
+      <h2 className="mb-1 text-sm font-semibold">Jornales por tarea y mes</h2>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Jornales = horas ÷ {hoursPerJornal} (horas por jornal, configurable en Inventarios → € y
+        horas).
+      </p>
+
+      <div className="mb-3 flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Finca</Label>
+          <select
+            className="h-9 rounded-md border border-input bg-card px-2 text-sm"
+            value={farmId ?? ""}
+            onChange={(e) => setFarmId(e.target.value || undefined)}
+          >
+            {farms.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Año de cultivo</Label>
+          <select
+            className="h-9 rounded-md border border-input bg-card px-2 text-sm"
+            value={cropYearId ?? ""}
+            onChange={(e) => setCropYearId(e.target.value || undefined)}
+            disabled={cropYears.length === 0}
+          >
+            {cropYears.length === 0 && <option value="">Sin años de cultivo</option>}
+            {cropYears.map((cy) => (
+              <option key={cy.id} value={cy.id}>
+                {cy.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {selectedCropYear ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="h-8">Tarea</TableHead>
+                {months.map((m) => (
+                  <TableHead key={m} className="h-8 whitespace-nowrap text-right capitalize">
+                    {monthLabel(m)}
+                  </TableHead>
+                ))}
+                <TableHead className="h-8 whitespace-nowrap text-right font-semibold">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {matrix.map((row) => (
+                <TableRow key={row.taskType}>
+                  <TableCell className="py-1 font-medium">{row.taskType}</TableCell>
+                  {row.cells.map((v, i) => (
+                    <TableCell key={months[i]} className="py-1 text-right text-muted-foreground">
+                      {v > 0 ? v.toLocaleString("es-ES") : "—"}
+                    </TableCell>
+                  ))}
+                  <TableCell className="py-1 text-right font-semibold">
+                    {row.total.toLocaleString("es-ES")}
+                  </TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="bg-muted/40">
+                <TableCell className="py-1 font-semibold">Total</TableCell>
+                {monthTotals.map((v, i) => (
+                  <TableCell key={months[i]} className="py-1 text-right font-semibold">
+                    {v > 0 ? v.toLocaleString("es-ES") : "—"}
+                  </TableCell>
+                ))}
+                <TableCell className="py-1 text-right font-semibold">
+                  {grandTotal.toLocaleString("es-ES")}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Esta finca no tiene años de cultivo cargados (Inventarios → Fincas → editar finca).
+        </p>
+      )}
+
+      {unassigned.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <h3 className="mb-1 text-sm font-semibold">Sin año asignado</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Registros de esta finca cuya fecha no cae en ningún año de cultivo — revísalos o pulsa
+            "Recalcular asignaciones" en la ficha de la finca si acabas de cambiar las fechas de un
+            año.
+          </p>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="h-8">Fecha</TableHead>
+                  <TableHead className="h-8">Trabajador</TableHead>
+                  <TableHead className="h-8">Tarea</TableHead>
+                  <TableHead className="h-8 text-right">Horas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unassigned.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="py-1">{r.work_date}</TableCell>
+                    <TableCell className="py-1">{r.worker_name}</TableCell>
+                    <TableCell className="py-1 text-muted-foreground">{r.task_type}</TableCell>
+                    <TableCell className="py-1 text-right">{Number(r.hours)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

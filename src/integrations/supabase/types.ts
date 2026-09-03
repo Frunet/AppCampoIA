@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string
@@ -31,6 +49,47 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      crop_years: {
+        Row: {
+          created_at: string
+          crop_end: string
+          crop_start: string
+          farm_id: string
+          harvest_end: string
+          harvest_start: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          crop_end: string
+          crop_start: string
+          farm_id: string
+          harvest_end: string
+          harvest_start: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          crop_end?: string
+          crop_start?: string
+          farm_id?: string
+          harvest_end?: string
+          harvest_start?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_years_farm_id_fkey"
+            columns: ["farm_id"]
+            isOneToOne: false
+            referencedRelation: "farms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       farm_managers: {
         Row: {
@@ -366,6 +425,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          crop_year_id: string | null
           farm_id: string
           hours: number
           id: string
@@ -382,6 +442,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          crop_year_id?: string | null
           farm_id: string
           hours: number
           id?: string
@@ -398,6 +459,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          crop_year_id?: string | null
           farm_id?: string
           hours?: number
           id?: string
@@ -412,6 +474,13 @@ export type Database = {
           worker_name?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "work_hours_crop_year_id_fkey"
+            columns: ["crop_year_id"]
+            isOneToOne: false
+            referencedRelation: "crop_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_hours_farm_id_fkey"
             columns: ["farm_id"]
@@ -478,6 +547,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_crop_years: {
+        Args: { p_farm_id: string }
+        Returns: undefined
       }
     }
     Enums: {

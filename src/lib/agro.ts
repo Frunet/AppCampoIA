@@ -36,6 +36,19 @@ export type LaborCostRate = {
   valid_from: string;
   created_at: string;
 };
+
+// Años de cultivo por finca (Inventarios → ficha de finca) y la
+// configuracion clave/valor de la app (Inventarios → "€ y horas").
+export type CropYear = {
+  id: string;
+  farm_id: string;
+  name: string;
+  crop_start: string;
+  crop_end: string;
+  harvest_start: string;
+  harvest_end: string;
+};
+export type AppSetting = { key: string; value: string };
 export type UserRow = {
   id: string;
   email: string | null;
@@ -67,6 +80,7 @@ export type WorkHour = {
   created_by: string | null;
   updated_at: string;
   updated_by: string | null;
+  crop_year_id: string | null;
 };
 
 export type Purchase = {
@@ -117,6 +131,26 @@ export const monthLabel = (key: string) => {
     year: "numeric",
     timeZone: "UTC",
   });
+};
+
+/** Claves "YYYY-MM" desde `from` hasta `to` (fechas ISO), en orden
+ * cronologico, cruzando de un año calendario a otro si hace falta —
+ * usado para las columnas del informe de jornales por año de cultivo. */
+export const monthsBetween = (from: string, to: string): string[] => {
+  const [fy, fm] = from.slice(0, 7).split("-").map(Number);
+  const [ty, tm] = to.slice(0, 7).split("-").map(Number);
+  const out: string[] = [];
+  let y = fy!;
+  let m = fm!;
+  while (y < ty! || (y === ty! && m <= tm!)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return out;
 };
 
 export const lastMonths = (n: number) => {
