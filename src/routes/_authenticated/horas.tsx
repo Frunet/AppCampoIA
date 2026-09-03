@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFarms, useTaskTypes, useVarieties, useWorkHours, useWorkers } from "@/hooks/use-agro";
@@ -121,8 +121,6 @@ function HorasPage() {
   const [editingDraftLine, setEditingDraftLine] = useState<{ line: DraftLine; index: number } | null>(
     null,
   );
-  const [newWorker, setNewWorker] = useState("");
-  const [showWorker, setShowWorker] = useState(false);
   const [dictating, setDictating] = useState(false);
 
   // Borrador de altas nuevas: no se persiste (ni BD ni localStorage). Si se
@@ -196,19 +194,6 @@ function HorasPage() {
   const varieties = allVarieties.filter(
     (v) => v.fruit_id === currentFruit && (v.active || v.name === form.variety),
   );
-
-  async function addWorker() {
-    if (!farmId || !newWorker.trim()) return;
-    const { error } = await supabase.from("workers").insert({ farm_id: farmId, name: newWorker.trim() });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    setNewWorker("");
-    setShowWorker(false);
-    qc.invalidateQueries({ queryKey: ["workers"] });
-    toast.success("Trabajador añadido");
-  }
 
   function toggleWorker(id: string) {
     setForm((f) => {
@@ -504,37 +489,26 @@ function HorasPage() {
                 </span>
               )}
             </Label>
-            <div className="flex items-center gap-1">
-              {!isEditingSingle && workers.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      worker_ids:
-                        f.worker_ids.length === workers.length ? [] : workers.map((w) => w.id),
-                    }))
-                  }
-                >
-                  {form.worker_ids.length === workers.length ? "Ninguno" : "Todos"}
-                </Button>
-              )}
+            {!isEditingSingle && workers.length > 1 && (
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Añadir trabajador"
-                onClick={() => setShowWorker(!showWorker)}
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    worker_ids:
+                      f.worker_ids.length === workers.length ? [] : workers.map((w) => w.id),
+                  }))
+                }
               >
-                <UserPlus className="size-4" />
+                {form.worker_ids.length === workers.length ? "Ninguno" : "Todos"}
               </Button>
-            </div>
+            )}
           </div>
           {workers.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Añade trabajadores a esta finca con el botón +.
+              Añade trabajadores a esta finca desde Inventarios.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -564,19 +538,6 @@ function HorasPage() {
             </p>
           )}
         </div>
-
-        {showWorker && (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nombre del nuevo trabajador"
-              value={newWorker}
-              onChange={(e) => setNewWorker(e.target.value)}
-            />
-            <Button type="button" onClick={addWorker}>
-              Añadir
-            </Button>
-          </div>
-        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
